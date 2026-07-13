@@ -22,6 +22,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 PERFIL_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'perfil')
 os.makedirs(PERFIL_FOLDER, exist_ok=True)
 
+FUNDO_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'fundos')
+os.makedirs(FUNDO_FOLDER, exist_ok=True)
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -89,6 +92,10 @@ def init_db():
         conn.execute("ALTER TABLE usuarios ADD COLUMN papel_parede TEXT DEFAULT 'default'")
     except:
         pass
+    try:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN fundo_app TEXT DEFAULT 'default'")
+    except:
+        pass
     conn.commit()
     conn.close()
 
@@ -98,11 +105,15 @@ init_db()
 def inject_user():
     if 'email' in session:
         conn = get_db()
-        user = conn.execute("SELECT foto_perfil FROM usuarios WHERE email=?", (session['email'],)).fetchone()
+        user = conn.execute("SELECT foto_perfil, papel_parede, fundo_app FROM usuarios WHERE email=?", (session['email'],)).fetchone()
         conn.close()
         if user:
-            return {'minha_foto': user['foto_perfil']}
-    return {'minha_foto': None}
+            return {
+                'minha_foto': user['foto_perfil'],
+                'minha_papel': user['papel_parede'],
+                'meu_fundo': user['fundo_app'] or 'default'
+            }
+    return {'minha_foto': None, 'minha_papel': 'default', 'meu_fundo': 'default'}
 
 # Socket.IO
 socketio = SocketIO(app, cors_allowed_origins="*",
@@ -375,6 +386,10 @@ def arquivo_upload(nome):
 def arquivo_perfil(nome):
     return send_from_directory(PERFIL_FOLDER, nome)
 
+@app.route('/fundos/<nome>')
+def arquivo_fundo(nome):
+    return send_from_directory(FUNDO_FOLDER, nome)
+
 @app.route('/apagar_mensagem', methods=['POST'])
 def apagar_mensagem():
     if 'email' not in session:
@@ -458,6 +473,41 @@ def escolher_papel():
     papel = request.form.get('papel', 'default')
     conn = get_db()
     conn.execute("UPDATE usuarios SET papel_parede=? WHERE email=?", (papel, session['email']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('config'))
+
+@app.route('/upload_fundo_app', methods=['POST'])
+def upload_fundo_app():
+    if 'email' not in session:
+        return redirect(url_for('index'))
+    if 'fundo' not in request.files:
+        return redirect(url_for('config'))
+    file = request.files['fundo']
+    if not file.filename:
+        return redirect(url_for('config'))
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'png'
+    if ext not in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
+        return redirect(url_for('config'))
+    nome = f"fundo_{session['email'].replace('@','_').replace('.','_')}.{ext}"
+    file.save(os.path.join(FUNDO_FOLDER, nome))
+    conn = get_db()
+    conn.execute("UPDATE usuarios SET fundo_app=? WHERE email=?", (nome, session['email']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('config'))
+
+@app.route('/remover_fundo_app', methods=['POST'])
+def remover_fundo_app():
+    if 'email' not in session:
+        return redirect(url_for('index'))
+    conn = get_db()
+    user = conn.execute("SELECT fundo_app FROM usuarios WHERE email=?", (session['email'],)).fetchone()
+    if user and user['fundo_app']:
+        caminho = os.path.join(FUNDO_FOLDER, user['fundo_app'])
+        if os.path.exists(caminho):
+            os.remove(caminho)
+    conn.execute("UPDATE usuarios SET fundo_app='default' WHERE email=?", (session['email'],))
     conn.commit()
     conn.close()
     return redirect(url_for('config'))
