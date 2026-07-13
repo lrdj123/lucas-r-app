@@ -37,7 +37,24 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: system-ui, -apple-system, sans-serif;
-            background: var(--cream);
+            {% if meu_fundo and meu_fundo != 'default' and meu_fundo != 'none' %}
+                background: var(--cream);
+                background-image: url('/fundos/{{ meu_fundo }}');
+                background-size: cover;
+                background-attachment: fixed;
+                background-position: center;
+            {% else %}
+                {% set fundos_cores = {
+                    'default': 'var(--cream)',
+                    'verde_escuro': '#1a3c34',
+                    'lilas': '#f3e5f5',
+                    'areia': '#fff3e0',
+                    'gelo': '#f5f5f5',
+                    'azul': '#e3f2fd',
+                    'escuro': '#2c3e50'
+                } %}
+                background: {{ fundos_cores.get(meu_fundo, 'var(--cream)') }};
+            {% endif %}
             color: #333;
             user-select: none;
             -webkit-user-select: none;
