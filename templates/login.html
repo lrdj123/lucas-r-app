@@ -5,19 +5,40 @@
     <h1 style="font-size:2.5em;color:var(--green-dark);">🎙️ Voice<span style="color:var(--gold);">Mail</span></h1>
     <p style="color:#666;font-size:1.1em;margin-top:8px;">Mensagens diretas com quem você conhece</p>
 </div>
+
 <div class="card" style="max-width:400px;margin:20px auto;padding:30px;">
     <form action="{{ url_for('entrar') }}" method="POST">
         <label style="display:block;margin-bottom:6px;font-weight:bold;">Seu e-mail</label>
-        <input type="email" name="email" required placeholder="seu@email.com" class="input-field" style="margin-bottom:12px;">
+        <input type="email" name="email" placeholder="seu@email.com" class="input-field" style="margin-bottom:12px;">
         
         <label style="display:block;margin-bottom:6px;font-weight:bold;">Seu apelido</label>
-        <input type="text" name="apelido" required placeholder="Como quer ser chamado" class="input-field" style="margin-bottom:20px;">
+        <input type="text" name="apelido" placeholder="Como quer ser chamado" class="input-field" style="margin-bottom:20px;">
         
         <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:1.1em;">
             Entrar 🚪
         </button>
     </form>
-    <p style="margin-top:15px;font-size:0.8em;color:#999;text-align:center;">
+
+    <div style="border-top:2px dashed #ddd;margin:25px 0 15px;text-align:center;padding-top:15px;">
+        <span style="background:var(--cream);padding:0 10px;color:#999;font-size:0.8em;">ou</span>
+    </div>
+
+    <form action="{{ url_for('gerar_anonimo') }}" method="POST" 
+          onsubmit="document.getElementById('submitAnon').disabled=true;document.getElementById('submitAnon').innerHTML='⏳ Gerando...'">
+        <label style="display:block;margin-bottom:6px;font-weight:bold;">Apelido para conta anônima</label>
+        <input type="text" name="apelido" required placeholder="Ex: Lince99" class="input-field" style="margin-bottom:12px;">
+        <p style="font-size:0.75em;color:#bbb;margin-bottom:15px;">
+            🔒 Ninguém vê seu e-mail. Só o apelido aparece pra quem você conversa.
+        </p>
+        <button type="submit" id="submitAnon" class="btn btn-primary" 
+                style="width:100%;padding:12px;font-size:1.1em;background:var(--gold);color:#1a3c34;">
+            🔑 Gerar acesso anônimo
+        </button>
+    </form>
+</div>
+
+<div style="text-align:center;margin-top:5px;">
+    <p style="font-size:0.8em;color:#999;">
         ⚡ Só conversa com quem tem o app. Sem salas, sem código.
     </p>
 </div>
