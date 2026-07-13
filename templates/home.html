@@ -2,6 +2,12 @@
 {% block title %}Início{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+    .foto-conversa { width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0; }
+    .foto-conversa-placeholder { width:40px;height:40px;border-radius:50%;background:var(--green-dark);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1em;border:2px solid var(--gold); }
+    .foto-contato { width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0; }
+    .foto-contato-placeholder { width:32px;height:32px;border-radius:50%;background:var(--green-dark);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.8em;border:2px solid var(--gold); }
+</style>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:30px 0;">
     {% if erro %}
@@ -18,17 +24,22 @@
             <div style="display:flex;flex-direction:column;gap:8px;">
             {% for c in conversas %}
                 <a href="{{ url_for('chat_com', email_contato=c.outro_email) }}" 
-                   style="display:flex;justify-content:space-between;align-items:center;
+                   style="display:flex;align-items:center;gap:10px;
                           padding:12px;border-radius:8px;background:#f9f9f9;
                           text-decoration:none;color:#333;transition:background 0.2s;
                           border-left:4px solid var(--gold);"
                    onmouseover="this.style.background='#f0f0f0'" 
                    onmouseout="this.style.background='#f9f9f9'">
-                    <div>
-                        <strong style="color:var(--green-dark);">👤 {{ c.outro_apelido }}</strong>
-                        <div style="font-size:0.8em;color:#999;margin-top:3px;">{{ c.ultima_msg[:50] }}{% if c.ultima_msg|length > 50 %}...{% endif %}</div>
+                    {% if c.outro_foto %}
+                        <img src="/perfil/{{ c.outro_foto }}" class="foto-conversa">
+                    {% else %}
+                        <div class="foto-conversa-placeholder">👤</div>
+                    {% endif %}
+                    <div style="flex:1;min-width:0;">
+                        <strong style="color:var(--green-dark);">{{ c.outro_apelido }}</strong>
+                        <div style="font-size:0.8em;color:#999;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.ultima_msg[:50] }}{% if c.ultima_msg|length > 50 %}...{% endif %}</div>
                     </div>
-                    <span style="font-size:0.75em;color:#bbb;">{{ c.ultima_data[:10] if c.ultima_data else '—' }}</span>
+                    <span style="font-size:0.75em;color:#bbb;white-space:nowrap;">{{ c.ultima_data[:10] if c.ultima_data else '—' }}</span>
                 </a>
             {% endfor %}
             </div>
@@ -55,9 +66,16 @@
             {% for c in contatos %}
                 <div style="display:flex;justify-content:space-between;align-items:center;
                             padding:10px 12px;border-radius:8px;background:#f9f9f9;">
-                    <div>
-                        <strong style="color:var(--green-dark);">👤 {{ c.apelido }}</strong>
-                        <div style="font-size:0.8em;color:#aaa;">{{ c.contato_email }}</div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        {% if c.foto_perfil %}
+                            <img src="/perfil/{{ c.foto_perfil }}" class="foto-contato">
+                        {% else %}
+                            <div class="foto-contato-placeholder">👤</div>
+                        {% endif %}
+                        <div>
+                            <strong style="color:var(--green-dark);">{{ c.apelido }}</strong>
+                            <div style="font-size:0.8em;color:#aaa;">{{ c.contato_email }}</div>
+                        </div>
                     </div>
                     <div style="display:flex;gap:6px;">
                         <a href="{{ url_for('chat_com', email_contato=c.contato_email) }}" 
