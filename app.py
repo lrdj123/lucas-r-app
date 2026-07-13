@@ -7,9 +7,11 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24).hex()
-socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Salas na memória (some tudo se reiniciar o servidor)
+# IMPORTANTE: No Back4App com Eventlet, é melhor deixar o SocketIO gerenciar o servidor
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+# Salas na memória
 salas = {}
 
 def gerar_codigo():
@@ -58,8 +60,9 @@ def entrar_sala():
 def chat(codigo):
     if 'email' not in session:
         return redirect(url_for('index'))
+    # Se a sala não existir na memória (servidor reiniciou), cria ela na hora pra não dar erro
     if codigo not in salas:
-        return redirect(url_for('salas'))
+        salas[codigo] = {'mensagens': []}
     session['sala'] = codigo
     return render_template('chat.html', codigo=codigo, email=session['email'])
 
@@ -88,15 +91,8 @@ def handle_mensagem(data):
 
 @app.route('/sair')
 def sair():
-    codigo = session.get('sala')
-    if codigo and codigo in salas:
-        apelido = session.get('apelido', 'Anônimo')
-        socketio.emit('mensagem', {
-            'tipo': 'sistema',
-            'texto': f'{apelido} saiu da sala 🔴'
-        }, room=codigo)
     session.clear()
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=8080, debug=True)
+    socketio.run(app, host='0.0.0.0', port=8080)
