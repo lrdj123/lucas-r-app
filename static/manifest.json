@@ -1,0 +1,22 @@
+{
+  "name": "VoiceMail",
+  "short_name": "VoiceMail",
+  "description": "Mensagens diretas com quem você conhece",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a3c34",
+  "theme_color": "#1a3c34",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
