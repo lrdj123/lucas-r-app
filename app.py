@@ -385,6 +385,14 @@ def handle_entrar_chat(data):
         join_room(sala_id(conv_id))
         logger.info(f"Cliente entrou na conversa {conv_id}")
 
+@socketio.on('registrar_usuario')
+def handle_registrar(data):
+    email = data.get('email', '')
+    if email:
+        room = f"user_{email.replace('@','_').replace('.','_')}"
+        join_room(room)
+        logger.info(f"Usuario registrado: {email} -> {room}")
+
 @socketio.on('mensagem_privada')
 def handle_mensagem(data):
     try:
@@ -407,10 +415,16 @@ def handle_mensagem(data):
         )
         conn.commit()
         conn.close()
-        msg = {'id': msg_id, 'remetente': remetente, 'texto': texto}
+        msg = {'id': msg_id, 'remetente': remetente, 'texto': texto, 'conv_id': conv_id, 'apelido': data.get('apelido', '')}
         if midia:
             msg['midia'] = midia
+        # Envia pro chat
         emit('nova_mensagem', msg, room=sala_id(conv_id))
+        # Envia notificação pro outro participante (se estiver na home)
+        destino = data.get('destino', '')
+        if destino:
+            user_room = f"user_{destino.replace('@','_').replace('.','_')}"
+            emit('notificacao_mensagem', msg, room=user_room)
     except Exception as e:
         logger.error(f"Erro mensagem: {e}")
 
