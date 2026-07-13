@@ -1,17 +1,30 @@
 import os
 import string
 import random
+import logging
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_socketio import SocketIO, emit, join_room
 
+# Configurar logging para debug
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
-# Chave fixa para não deslogar ao reiniciar
-app.secret_key = "lucas_r_secret_key_123"
+app.secret_key = os.environ.get('SECRET_KEY', 'lucas_r_secret_key_123')
+app.config['SESSION_TYPE'] = 'filesystem'
 
-# Configuração robusta para o Back4App
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', logger=True, engineio_logger=True)
+# CORREÇÃO: Configuração mais robusta do Socket.IO
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins="*",
+    async_mode='eventlet',
+    ping_timeout=60,
+    ping_interval=25,
+    logger=True,
+    engineio_logger=True
+)
 
-# Salas na memória
+# Armazenamento em memória (volátil)
 salas = {}
 
 def gerar_codigo():
@@ -28,10 +41,11 @@ def entrar():
         return redirect(url_for('index'))
     session['email'] = email
     session['apelido'] = email.split('@')[0]
+    logger.info(f"Usuário entrou: {email}")
     return redirect(url_for('salas'))
 
 @app.route('/salas')
-def salas():
+def salas_view():
     if 'email' not in session:
         return redirect(url_for('index'))
     return render_template('salas.html', email=session['email'])
@@ -43,7 +57,7 @@ def criar_sala():
     codigo = gerar_codigo()
     salas[codigo] = {'mensagens': []}
     session['sala'] = codigo
-    # Redireciona usando o código gerado
+    logger.info(f"Sala criada: {codigo}")
     return redirect(url_for('chat', codigo=codigo))
 
 @app.route('/entrar_sala', methods=['POST'])
@@ -56,6 +70,7 @@ def entrar_sala():
     if codigo not in salas:
         salas[codigo] = {'mensagens': []}
     session['sala'] = codigo
+    logger.info(f"Usuário entrou na sala: {codigo}")
     return redirect(url_for('chat', codigo=codigo))
 
 @app.route('/chat/<codigo>')
@@ -67,28 +82,58 @@ def chat(codigo):
     session['sala'] = codigo
     return render_template('chat.html', codigo=codigo, email=session['email'])
 
+# CORREÇÃO: Usar request.sid e passar dados via cliente para evitar problemas de session
+@socketio.on('connect')
+def handle_connect():
+    logger.info(f"Cliente conectado: {request.sid}")
+
 @socketio.on('entrar')
 def handle_entrar(data):
-    codigo = data.get('sala')
-    if codigo in salas:
+    try:
+        codigo = data.get('sala')
+        apelido = data.get('apelido', 'Anônimo')
+        
+        if not codigo:
+            logger.error("Código da sala não fornecido")
+            return
+            
+        if codigo not in salas:
+            salas[codigo] = {'mensagens': []}
+            
         join_room(codigo)
-        apelido = session.get('apelido', 'Anônimo')
+        logger.info(f"{apelido} entrou na sala {codigo}")
+        
         emit('mensagem', {
             'tipo': 'sistema',
             'texto': f'{apelido} entrou na sala 🟢'
         }, room=codigo)
+        
         emit('historico', {'mensagens': salas[codigo]['mensagens']})
+    except Exception as e:
+        logger.error(f"Erro ao entrar na sala: {e}")
 
 @socketio.on('mensagem')
 def handle_mensagem(data):
-    codigo = session.get('sala')
-    if codigo in salas:
-        apelido = session.get('apelido', 'Anônimo')
+    try:
+        codigo = data.get('sala')
+        apelido = data.get('apelido', 'Anônimo')
         texto = data.get('texto', '').strip()
+        
+        if not codigo or codigo not in salas:
+            logger.error(f"Sala inválida: {codigo}")
+            return
+            
         if texto:
             msg = {'tipo': 'usuario', 'apelido': apelido, 'texto': texto}
             salas[codigo]['mensagens'].append(msg)
             emit('mensagem', msg, room=codigo)
+            logger.info(f"Mensagem em {codigo}: {apelido}")
+    except Exception as e:
+        logger.error(f"Erro ao enviar mensagem: {e}")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.info(f"Cliente desconectado: {request.sid}")
 
 @app.route('/sair')
 def sair():
