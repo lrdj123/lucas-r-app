@@ -3,6 +3,7 @@ import sqlite3
 import uuid
 import time
 import logging
+import json
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify
 from flask_socketio import SocketIO, emit, join_room
 
@@ -11,15 +12,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'voicemail_secret_123')
-
-# Socket.IO
-socketio = SocketIO(app, cors_allowed_origins="*",
-                    ping_timeout=60, ping_interval=25,
-                    logger=True, engineio_logger=True,
-                    async_mode='threading')
-
-# Inicializar banco
-init_db()
 
 # Upload
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
@@ -86,7 +78,14 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Executa init_db UMA VEZ ao carregar o script
 init_db()
+
+# Socket.IO (Configurado após as definições globais)
+socketio = SocketIO(app, cors_allowed_origins="*",
+                    ping_timeout=60, ping_interval=25,
+                    logger=True, engineio_logger=True,
+                    async_mode='threading')
 
 # ─── Utilitários ────────────────────────────────────────────
 def pegar_ou_criar_conversa(email1, email2):
@@ -230,7 +229,6 @@ def chat_com(email_contato):
     for m in msgs:
         msg = {'id': m['id'], 'remetente': m['remetente'], 'texto': m['texto'], 'data': m['criada_em']}
         if m['midia_json']:
-            import json
             msg['midia'] = json.loads(m['midia_json'])
         historico.append(msg)
     return render_template('chat_direto.html', email_contato=email_contato,
@@ -288,7 +286,6 @@ def handle_mensagem(data):
         conn = get_db()
         midia_json = None
         if midia:
-            import json
             midia_json = json.dumps(midia)
         conn.execute(
             "INSERT INTO mensagens (id, conversa_id, remetente, texto, midia_json) VALUES (?, ?, ?, ?, ?)",
