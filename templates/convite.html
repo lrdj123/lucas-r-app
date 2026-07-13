@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Convite{% endblock %}
+{% block content %}
+<div class="hero" style="text-align:center;padding:50px 20px 20px;">
+    <h1 style="font-size:2em;color:var(--green-dark);">🎙️ Voice<span style="color:var(--gold);">Mail</span></h1>
+    <p style="color:#666;font-size:1.1em;margin-top:8px;">Você foi convidado(a) para conversar com</p>
+    <div style="margin:20px 0;padding:20px;background:white;border-radius:12px;box-shadow:var(--shadow);display:inline-block;">
+        {% if convidante_foto %}
+            <img src="/perfil/{{ convidante_foto }}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--gold);display:block;margin:0 auto 10px;">
+        {% else %}
+            <div style="width:80px;height:80px;border-radius:50%;background:var(--green-dark);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:2em;margin:0 auto 10px;">👤</div>
+        {% endif %}
+        <h2 style="color:var(--green-dark);margin:0;">{{ convidante_apelido }}</h2>
+        <p style="font-size:0.85em;color:#999;">{{ convidante_email }}</p>
+    </div>
+</div>
+
+{% if convite_valido %}
+<div class="card" style="max-width:400px;margin:20px auto;padding:30px;">
+    <form action="{{ url_for('entrar_com_convite', email_convidante=convidante_email) }}" method="POST">
+        <label style="display:block;margin-bottom:6px;font-weight:bold;">Seu e-mail</label>
+        <input type="email" name="email" required placeholder="seu@email.com" class="input-field" style="margin-bottom:12px;">
+        
+        <label style="display:block;margin-bottom:6px;font-weight:bold;">Seu apelido</label>
+        <input type="text" name="apelido" required placeholder="Como quer ser chamado" class="input-field" style="margin-bottom:20px;">
+        
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:1.1em;">
+            Conversar com {{ convidante_apelido }} 🚀
+        </button>
+    </form>
+</div>
+{% else %}
+<div class="card" style="max-width:400px;margin:20px auto;padding:30px;text-align:center;">
+    <p style="color:#e74c3c;font-size:1.1em;">❌ Esta pessoa não está no VoiceMail</p>
+    <p style="color:#999;font-size:0.85em;">Convide {{ convidante_apelido }} para se cadastrar!</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary" style="display:inline-block;margin-top:15px;padding:10px 25px;">Entrar</a>
+</div>
+{% endif %}
+{% endblock %}
