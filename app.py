@@ -155,6 +155,27 @@ def entrar():
     conn.close()
     return redirect(url_for('home'))
 
+@app.route('/gerar_anonimo', methods=['POST'])
+def gerar_anonimo():
+    apelido = request.form.get('apelido', '').strip()
+    if not apelido:
+        return redirect(url_for('index'))
+    import uuid
+    codigo = uuid.uuid4().hex[:8]
+    email = f"{codigo}@anon.voicemail"
+    conn = get_db()
+    user = conn.execute("SELECT * FROM usuarios WHERE email=?", (email,)).fetchone()
+    while user:
+        codigo = uuid.uuid4().hex[:8]
+        email = f"{codigo}@anon.voicemail"
+        user = conn.execute("SELECT * FROM usuarios WHERE email=?", (email,)).fetchone()
+    conn.execute("INSERT INTO usuarios (email, apelido) VALUES (?, ?)", (email, apelido))
+    conn.commit()
+    conn.close()
+    session['email'] = email
+    session['apelido'] = apelido
+    return redirect(url_for('home'))
+
 @app.route('/home')
 def home():
     if 'email' not in session:
