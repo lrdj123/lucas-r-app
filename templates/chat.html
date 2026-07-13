@@ -13,7 +13,10 @@
         box-shadow: var(--shadow);
         margin-bottom: 15px;
         user-select: none;
+        -webkit-user-select: none;
     }
+    #messages::-webkit-scrollbar { width: 6px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
     .msg-sistema { color: #999; font-style: italic; font-size: 0.85em; margin: 8px 0; text-align: center; }
     .msg-usuario { margin: 6px 0; padding: 8px 12px; border-radius: 8px; background: #f5f5f5; }
     .msg-usuario .apelido { color: var(--green-dark); font-weight: bold; font-size: 0.85em; }
@@ -26,9 +29,9 @@
         background: var(--green-dark); color: white; border-radius: 12px;
     }
     .codigo-box .codigo { font-size: 1.8em; font-weight: bold; letter-spacing: 4px; color: var(--gold); }
-    #status { text-align: center; padding: 5px; font-size: 0.8em; }
-    .conectado { color: #2d6a4f; }
-    .erro { color: #d32f2f; }
+    #status { text-align: center; padding: 5px; font-size: 0.8em; color: #666; }
+    .conectado { color: #2d6a4f !important; }
+    .erro { color: #d32f2f !important; }
 </style>
 
 <div class="hero" style="padding:30px 20px;">
@@ -48,43 +51,84 @@
         <input type="text" id="msgInput" placeholder="Digite sua mensagem..." autocomplete="off">
         <button class="btn btn-primary" id="sendBtn">Enviar ➤</button>
     </div>
+    <p style="text-align:center;font-size:0.75em;color:#999;margin-top:10px;">
+        🚫 Anti-print ativo | 📵 Conversa some ao fechar | 👤 {{ email }}
+    </p>
 </div>
 
+<!-- CORREÇÃO: Usar CDN do Socket.IO como fallback -->
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
     const codigo = '{{ codigo }}';
     const apelido = '{{ email.split("@")[0] }}';
     const statusDiv = document.getElementById('status');
     
-    // Conexão simples
-    const socket = io();
+    // CORREÇÃO: Configuração robusta de conexão
+    const socket = io({
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        rememberUpgrade: true
+    });
     
-    document.addEventListener('contextmenu', e => e.preventDefault());
-    document.addEventListener('copy', e => e.preventDefault());
+    // Debug no console
+    console.log('Tentando conectar ao Socket.IO...');
 
+    // Bloqueios de segurança
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'PrintScreen' || 
+            (e.ctrlKey && e.key === 'p') ||
+            (e.metaKey && e.shiftKey && ['p','i','j'].includes(e.key))) {
+            e.preventDefault();
+            return false;
+        }
+    });
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    document.addEventListener('copy', function(e) { e.preventDefault(); });
+    document.addEventListener('cut', function(e) { e.preventDefault(); });
+
+    // Conexão estabelecida
     socket.on('connect', function() {
+        console.log('Conectado! ID:', socket.id);
         statusDiv.textContent = '✅ Conectado';
         statusDiv.className = 'conectado';
-        socket.emit('entrar', { sala: codigo, apelido: apelido });
+        
+        // Envia dados da sala e apelido
+        socket.emit('entrar', { 
+            sala: codigo,
+            apelido: apelido
+        });
     });
 
-    socket.on('connect_error', function() {
-        statusDiv.textContent = '❌ Erro de conexão';
+    // Erro de conexão
+    socket.on('connect_error', function(error) {
+        console.error('Erro de conexão:', error);
+        statusDiv.textContent = '❌ Erro de conexão. Recarregue a página.';
         statusDiv.className = 'erro';
     });
 
+    // Receber histórico
     socket.on('historico', function(data) {
+        console.log('Histórico recebido:', data);
         const msgs = document.getElementById('messages');
         msgs.innerHTML = '';
-        if (data.mensagens) {
+        if (data.mensagens && data.mensagens.length > 0) {
             data.mensagens.forEach(function(msg) { adicionarMensagem(msg); });
         }
         msgs.scrollTop = msgs.scrollHeight;
     });
 
+    // Receber mensagem
     socket.on('mensagem', function(data) {
+        console.log('Mensagem recebida:', data);
         adicionarMensagem(data);
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    });
+
+    // Desconexão
+    socket.on('disconnect', function() {
+        console.log('Desconectado');
+        statusDiv.textContent = '⚠️ Desconectado';
+        statusDiv.className = 'erro';
     });
 
     function adicionarMensagem(data) {
@@ -103,8 +147,14 @@
         const input = document.getElementById('msgInput');
         const texto = input.value.trim();
         if (texto && socket.connected) {
-            socket.emit('mensagem', { texto: texto, sala: codigo, apelido: apelido });
+            socket.emit('mensagem', { 
+                texto: texto,
+                sala: codigo,
+                apelido: apelido
+            });
             input.value = '';
+        } else if (!socket.connected) {
+            alert('Você está desconectado. Recarregue a página.');
         }
     }
 
