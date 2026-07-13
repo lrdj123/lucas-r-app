@@ -75,7 +75,7 @@
             <a href="/" class="logo">💬 Lucas <span>R</span></a>
             <nav>
                 {% if session.email %}
-                    <a href="{{ url_for('salas') }}">📁 Salas</a>
+                    <a href="{{ url_for('salas_view') }}">📁 Salas</a>
                     <a href="{{ url_for('sair') }}">🚪 Sair</a>
                 {% endif %}
             </nav>
