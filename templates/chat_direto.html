@@ -72,19 +72,28 @@
     .upload-status { font-size:0.8em;color:#666;text-align:center;padding:4px; }
     .btn-emoji { background:none;border:2px solid #ddd;border-radius:50%;padding:8px 10px;font-size:1.1em;cursor:pointer;transition:0.2s;line-height:1;width:40px;height:40px;text-align:center; }
     .btn-emoji:hover { border-color:var(--gold);background:#fff8e7; }
-    .emoji-picker {
+    .btn-sticker { background:none;border:2px solid #ddd;border-radius:50%;padding:8px 10px;font-size:1.1em;cursor:pointer;transition:0.2s;line-height:1;width:40px;height:40px;text-align:center; }
+    .btn-sticker:hover { border-color:var(--gold);background:#fff8e7; }
+    .emoji-picker, .sticker-picker {
         display:none; background:white; border-radius:12px 12px 0 0;
         box-shadow:0 -4px 15px rgba(0,0,0,0.1); padding:10px;
         max-height:200px; overflow-y:auto; flex-wrap:wrap; gap:4px;
         justify-content:center;
     }
-    .emoji-picker.ativo { display:flex; }
+    .emoji-picker.ativo, .sticker-picker.ativo { display:flex; }
     .emoji-picker span {
         font-size:1.5em; cursor:pointer; padding:4px; border-radius:6px;
         transition:0.15s; width:38px; height:38px; display:flex;
         align-items:center; justify-content:center;
     }
     .emoji-picker span:hover { background:var(--cream); transform:scale(1.2); }
+    .sticker-picker img {
+        width:72px; height:72px; cursor:pointer; border-radius:8px;
+        object-fit:contain; transition:0.15s; padding:4px;
+    }
+    .sticker-picker img:hover { background:var(--cream); transform:scale(1.15); }
+    #messages .sticker-msg { text-align:center; padding:4px 0; }
+    #messages .sticker-msg img { max-width:150px; max-height:150px; display:inline-block; }
 </style>
 
 <div class="chat-page">
@@ -114,7 +123,11 @@
                     <div class="autor">Você</div>
                     {% if msg.midia %}
                         {% if msg.midia.tipo == 'imagem' %}
-                            <img src="/uploads/{{ msg.midia.arquivo }}" onclick="window.open(this.src)" loading="lazy">
+                            {% if msg.midia.arquivo.startswith('man_') %}
+                                <div class="sticker-msg"><img src="/static/stickers/{{ msg.midia.arquivo }}" alt="Sticker"></div>
+                            {% else %}
+                                <img src="/uploads/{{ msg.midia.arquivo }}" onclick="window.open(this.src)" loading="lazy">
+                            {% endif %}
                         {% elif msg.midia.tipo == 'video' %}
                             <video controls preload="metadata"><source src="/uploads/{{ msg.midia.arquivo }}"></video>
                         {% elif msg.midia.tipo == 'audio' %}
@@ -131,7 +144,11 @@
                     <div class="autor">{{ outro_apelido }}</div>
                     {% if msg.midia %}
                         {% if msg.midia.tipo == 'imagem' %}
-                            <img src="/uploads/{{ msg.midia.arquivo }}" onclick="window.open(this.src)" loading="lazy">
+                            {% if msg.midia.arquivo.startswith('man_') %}
+                                <div class="sticker-msg"><img src="/static/stickers/{{ msg.midia.arquivo }}" alt="Sticker"></div>
+                            {% else %}
+                                <img src="/uploads/{{ msg.midia.arquivo }}" onclick="window.open(this.src)" loading="lazy">
+                            {% endif %}
                         {% elif msg.midia.tipo == 'video' %}
                             <video controls preload="metadata"><source src="/uploads/{{ msg.midia.arquivo }}"></video>
                         {% elif msg.midia.tipo == 'audio' %}
@@ -149,7 +166,9 @@
 
     <div id="uploadStatus" class="upload-status"></div>
     <div class="emoji-picker" id="emojiPicker"></div>
+    <div class="sticker-picker" id="stickerPicker"></div>
     <div class="input-area">
+        <button class="btn-sticker" id="stickerBtn" title="Stickers animados">🎭</button>
         <button class="btn-emoji" id="emojiBtn" title="Emojis">😊</button>
         <button class="btn-midia" id="midiaBtn" title="Enviar mídia">📎</button>
         <button class="btn-audio" id="audioBtn" title="Gravar áudio">🎙️</button>
@@ -387,11 +406,80 @@
         emojiPicker.classList.toggle('ativo');
     };
 
-    // Clicar fora fecha o emoji picker
+    // Clicar fora fecha os pickers
     document.addEventListener('click', (e) => {
         if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
             emojiPicker.classList.remove('ativo');
         }
+        if (!stickerPicker.contains(e.target) && e.target !== stickerBtn) {
+            stickerPicker.classList.remove('ativo');
+        }
+    });
+
+    // Sticker Picker
+    const stickers = ['man_01','man_02','man_03','man_04','man_05','man_06','man_07','man_08'];
+    const stickerPicker = document.getElementById('stickerPicker');
+    const stickerBtn = document.getElementById('stickerBtn');
+
+    stickers.forEach(s => {
+        const img = document.createElement('img');
+        img.src = '/static/stickers/' + s + '.gif';
+        img.title = s;
+        img.onclick = () => {
+            // Envia sticker como mensagem
+            const stickerUrl = '/static/stickers/' + s + '.gif';
+            if (socket.connected) {
+                socket.emit('mensagem_privada', {
+                    conv_id: convId, remetente: emailLogado, apelido: apelido,
+                    texto: '', destino: emailContato, sticker: stickerUrl
+                });
+            }
+            stickerPicker.classList.remove('ativo');
+        };
+        stickerPicker.appendChild(img);
+    });
+
+    stickerBtn.onclick = () => {
+        stickerPicker.classList.toggle('ativo');
+        emojiPicker.classList.remove('ativo');
+    };
+
+    // Receber sticker
+    const originalNovaMsg = socket._callbacks?.['nova_mensagem'];
+    socket.on('nova_mensagem', function(data) {
+        if (data.conv_id && data.conv_id !== convId) return;
+        if (data.sticker) {
+            const isMine = data.remetente === emailLogado;
+            const div = document.createElement('div');
+            div.id = 'msg-' + data.id;
+            div.className = isMine ? 'msg-minha' : 'msg-outro';
+            let html = '<div class="autor">' + (isMine ? 'Você' : outroApelido) + '</div>';
+            html += '<div class="sticker-msg"><img src="' + data.sticker + '" alt="Sticker"></div>';
+            html += '<div class="hora">agora</div>';
+            div.innerHTML = html;
+            msgsDiv.appendChild(div);
+            msgsDiv.scrollTop = msgsDiv.scrollHeight;
+
+            // Som de notificação
+            if (!isMine) {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523, ctx.currentTime);
+                    osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + 0.25);
+                } catch(e) {}
+            }
+            return; // Já tratou, não deixa o evento padrão rodar de novo
+        }
+        // Fallback: se não for sticker, o código existente roda
+        // (o código está no listener existente acima)
     });
 
     // Scroll pro final
