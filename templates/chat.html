@@ -27,9 +27,34 @@
         user-select: none; -webkit-user-select: none;
     }
     .btn-apagar:hover { opacity: 1; }
-    .input-area { display: flex; gap: 10px; }
-    .input-area input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; }
-    .input-area button { padding: 12px 20px; }
+    .input-area { display: flex; gap: 8px; align-items: center; }
+    .input-area input[type="text"] { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; }
+    .input-area button { padding: 12px 20px; white-space: nowrap; }
+    .btn-midia {
+        background: none; border: 2px solid #ddd; border-radius: 8px;
+        padding: 10px 12px; font-size: 1.2em; cursor: pointer;
+        transition: all 0.2s; line-height: 1;
+    }
+    .btn-midia:hover { border-color: var(--gold); background: #fff8e7; }
+    #fileInput { display: none; }
+    .msg-midia {
+        margin: 6px 0; padding: 8px 12px; border-radius: 8px;
+        background: #f5f5f5; position: relative;
+    }
+    .msg-midia .apelido { color: var(--green-dark); font-weight: bold; font-size: 0.85em; }
+    .msg-midia img, .msg-midia video {
+        max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 5px; cursor: pointer;
+    }
+    .msg-midia audio { width: 100%; margin-top: 5px; }
+    .msg-midia .arquivo-link {
+        display: inline-block; margin-top: 5px; padding: 6px 12px;
+        background: var(--green-dark); color: white; border-radius: 6px;
+        text-decoration: none; font-size: 0.9em;
+    }
+    .msg-midia .arquivo-link:hover { opacity: 0.85; }
+    .upload-status {
+        font-size: 0.8em; color: #666; text-align: center; padding: 4px;
+    }
     .codigo-box {
         text-align: center; padding: 15px; margin-bottom: 20px;
         background: var(--green-dark); color: white; border-radius: 12px;
@@ -53,7 +78,10 @@
 <div class="chat-area">
     <div id="status">⏳ Conectando...</div>
     <div id="messages"></div>
+    <div id="uploadStatus" class="upload-status"></div>
     <div class="input-area">
+        <button class="btn-midia" id="midiaBtn" title="Enviar mídia">📎</button>
+        <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
         <input type="text" id="msgInput" placeholder="Digite sua mensagem..." autocomplete="off">
         <button class="btn btn-primary" id="sendBtn">Enviar ➤</button>
     </div>
@@ -142,6 +170,23 @@
         if (data.tipo === 'sistema') {
             div.className = 'msg-sistema';
             div.textContent = data.texto;
+        } else if (data.midia) {
+            div.className = 'msg-midia';
+            const isMine = data.apelido === apelido;
+            let html = '<div class="apelido">' + data.apelido + '</div>';
+            if (data.texto) html += '<div class="texto">' + data.texto + '</div>';
+            
+            if (data.midia.tipo === 'imagem') {
+                html += '<img src="/uploads/' + data.midia.arquivo + '" onclick="window.open(this.src)" loading="lazy">';
+            } else if (data.midia.tipo === 'video') {
+                html += '<video controls preload="metadata"><source src="/uploads/' + data.midia.arquivo + '"></video>';
+            } else if (data.midia.tipo === 'audio') {
+                html += '<audio controls preload="none"><source src="/uploads/' + data.midia.arquivo + '"></audio>';
+            } else {
+                html += '<a class="arquivo-link" href="/uploads/' + data.midia.arquivo + '" target="_blank">📄 ' + data.midia.arquivo + '</a>';
+            }
+            html += (isMine ? '<span class="btn-apagar" data-id="' + data.id + '" onclick="apagarMensagem(this)">🗑️</span>' : '');
+            div.innerHTML = html;
         } else {
             div.className = 'msg-usuario';
             const isMine = data.apelido === apelido;
@@ -190,6 +235,43 @@
     document.getElementById('sendBtn').onclick = enviar;
     document.getElementById('msgInput').onkeydown = function(e) {
         if (e.key === 'Enter') enviar();
+    };
+
+    // Upload de mídia
+    document.getElementById('midiaBtn').onclick = function() {
+        document.getElementById('fileInput').click();
+    };
+
+    document.getElementById('fileInput').onchange = function() {
+        const file = this.files[0];
+        if (!file) return;
+
+        const status = document.getElementById('uploadStatus');
+        status.textContent = '📤 Enviando ' + file.name + '...';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/upload', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.erro) {
+                    status.textContent = '❌ ' + data.erro;
+                    return;
+                }
+                status.textContent = '';
+                socket.emit('mensagem', {
+                    texto: '',
+                    sala: codigo,
+                    apelido: apelido,
+                    midia: data
+                });
+            })
+            .catch(e => {
+                status.textContent = '❌ Erro ao enviar: ' + e.message;
+            });
+
+        this.value = '';
     };
 </script>
 {% endblock %}
