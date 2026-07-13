@@ -2,9 +2,11 @@ import os
 import string
 import random
 import time
+import uuid
 import logging
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
+from werkzeug.utils import secure_filename
 
 # Configurar logging para debug
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +27,26 @@ socketio = SocketIO(
 
 # Armazenamento em memória (volátil)
 salas = {}
+
+# Configuração de upload
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'mp3', 'ogg', 'wav', 'webm', 'pdf', 'doc', 'docx', 'txt'}
+MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20MB
+app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def tipo_midia(ext):
+    if ext in {'png','jpg','jpeg','gif','webp'}:
+        return 'imagem'
+    elif ext in {'mp4','webm'}:
+        return 'video'
+    elif ext in {'mp3','ogg','wav'}:
+        return 'audio'
+    else:
+        return 'arquivo'
 
 def gerar_codigo():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -121,17 +143,20 @@ def handle_mensagem(data):
         codigo = data.get('sala')
         apelido = data.get('apelido', 'Anônimo')
         texto = data.get('texto', '').strip()
+        midia = data.get('midia')
         
         if not codigo or codigo not in salas:
             logger.error(f"Sala inválida: {codigo}")
             return
             
-        if texto:
+        if texto or midia:
             msg_id = data.get('id') or f"{apelido}-{int(time.time()*1000)}"
             msg = {'id': msg_id, 'tipo': 'usuario', 'apelido': apelido, 'texto': texto}
+            if midia:
+                msg['midia'] = midia
             salas[codigo]['mensagens'].append(msg)
             emit('mensagem', msg, room=codigo)
-            logger.info(f"Mensagem em {codigo}: {apelido}")
+            logger.info(f"Mensagem em {codigo}: {apelido}" + (" (mídia)" if midia else ""))
     except Exception as e:
         logger.error(f"Erro ao enviar mensagem: {e}")
 
@@ -159,6 +184,35 @@ def handle_disconnect():
 def sair():
     session.clear()
     return redirect(url_for('index'))
+
+@app.route('/upload', methods=['POST'])
+def upload_midia():
+    if 'email' not in session:
+        return {'erro': 'Não autenticado'}, 401
+    
+    if 'file' not in request.files:
+        return {'erro': 'Nenhum arquivo enviado'}, 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return {'erro': 'Nome de arquivo vazio'}, 400
+    
+    if not allowed_file(file.filename):
+        return {'erro': 'Tipo de arquivo não permitido'}, 400
+    
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    nome_unico = f"{uuid.uuid4().hex}.{ext}"
+    file.save(os.path.join(UPLOAD_FOLDER, nome_unico))
+    
+    return {
+        'arquivo': nome_unico,
+        'ext': ext,
+        'tipo': tipo_midia(ext)
+    }
+
+@app.route('/uploads/<nome>')
+def arquivo_upload(nome):
+    return send_from_directory(UPLOAD_FOLDER, nome)
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8080)
