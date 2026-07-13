@@ -18,9 +18,15 @@
     #messages::-webkit-scrollbar { width: 6px; }
     #messages::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
     .msg-sistema { color: #999; font-style: italic; font-size: 0.85em; margin: 8px 0; text-align: center; }
-    .msg-usuario { margin: 6px 0; padding: 8px 12px; border-radius: 8px; background: #f5f5f5; }
+    .msg-usuario { margin: 6px 0; padding: 8px 12px; border-radius: 8px; background: #f5f5f5; position: relative; }
     .msg-usuario .apelido { color: var(--green-dark); font-weight: bold; font-size: 0.85em; }
     .msg-usuario .texto { font-size: 1.1em; margin-top: 3px; }
+    .btn-apagar {
+        position: absolute; top: 4px; right: 8px; cursor: pointer;
+        font-size: 0.8em; opacity: 0.3; transition: opacity 0.2s;
+        user-select: none; -webkit-user-select: none;
+    }
+    .btn-apagar:hover { opacity: 1; }
     .input-area { display: flex; gap: 10px; }
     .input-area input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; }
     .input-area button { padding: 12px 20px; }
@@ -138,10 +144,33 @@
             div.textContent = data.texto;
         } else {
             div.className = 'msg-usuario';
-            div.innerHTML = '<div class="apelido">' + data.apelido + '</div><div class="texto">' + data.texto + '</div>';
+            const isMine = data.apelido === apelido;
+            div.innerHTML = '<div class="apelido">' + data.apelido + '</div>' +
+                '<div class="texto">' + data.texto + '</div>' +
+                (isMine ? '<span class="btn-apagar" data-id="' + data.id + '" onclick="apagarMensagem(this)">🗑️</span>' : '');
         }
         document.getElementById('messages').appendChild(div);
     }
+
+    function apagarMensagem(el) {
+        const id = el.getAttribute('data-id');
+        if (confirm('Apagar esta mensagem?')) {
+            socket.emit('apagar_mensagem', { sala: codigo, id: id, apelido: apelido });
+        }
+    }
+
+    // Receber confirmação de mensagem apagada
+    socket.on('mensagem_apagada', function(data) {
+        const msgs = document.getElementById('messages');
+        const divs = msgs.children;
+        for (let i = 0; i < divs.length; i++) {
+            const btn = divs[i].querySelector('.btn-apagar');
+            if (btn && btn.getAttribute('data-id') === data.id) {
+                divs[i].remove();
+                break;
+            }
+        }
+    });
 
     function enviar() {
         const input = document.getElementById('msgInput');
