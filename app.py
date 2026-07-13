@@ -94,6 +94,16 @@ def init_db():
 
 init_db()
 
+@app.context_processor
+def inject_user():
+    if 'email' in session:
+        conn = get_db()
+        user = conn.execute("SELECT foto_perfil FROM usuarios WHERE email=?", (session['email'],)).fetchone()
+        conn.close()
+        if user:
+            return {'minha_foto': user['foto_perfil']}
+    return {'minha_foto': None}
+
 # Socket.IO
 socketio = SocketIO(app, cors_allowed_origins="*",
                     ping_timeout=60, ping_interval=25,
