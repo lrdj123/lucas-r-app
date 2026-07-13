@@ -211,6 +211,64 @@ def adicionar_contato():
     conn.close()
     return redirect(url_for('home'))
 
+# ─── Convite por Link ────────────────────────────────────────
+@app.route('/convite/<email_convidante>')
+def pagina_convite(email_convidante):
+    email_convidante = email_convidante.lower()
+    if 'email' in session and session['email'] == email_convidante:
+        return redirect(url_for('home'))
+    conn = get_db()
+    user = conn.execute("SELECT * FROM usuarios WHERE email=?", (email_convidante,)).fetchone()
+    conn.close()
+    if not user:
+        return render_template('convite.html', convite_valido=False,
+                               convidante_email=email_convidante,
+                               convidante_apelido=email_convidante.split('@')[0],
+                               convidante_foto=None)
+    # Se já tem sessão, pula pra home
+    if 'email' in session:
+        # Auto-adicionar contato
+        conn2 = get_db()
+        try:
+            conn2.execute("INSERT INTO contatos (dono_email, contato_email) VALUES (?, ?)",
+                         (session['email'], email_convidante))
+        except:
+            pass
+        conn2.close()
+        return redirect(url_for('chat_com', email_contato=email_convidante))
+    return render_template('convite.html', convite_valido=True,
+                           convidante_email=email_convidante,
+                           convidante_apelido=user['apelido'],
+                           convidante_foto=user['foto_perfil'])
+
+@app.route('/entrar_com_convite/<email_convidante>', methods=['POST'])
+def entrar_com_convite(email_convidante):
+    email_convidante = email_convidante.lower()
+    email = request.form.get('email', '').strip().lower()
+    apelido = request.form.get('apelido', '').strip()
+    if not email or '@' not in email:
+        return redirect(url_for('pagina_convite', email_convidante=email_convidante))
+    conn = get_db()
+    user = conn.execute("SELECT * FROM usuarios WHERE email=?", (email,)).fetchone()
+    if user:
+        session['email'] = email
+        session['apelido'] = user['apelido']
+    else:
+        if not apelido:
+            apelido = email.split('@')[0]
+        conn.execute("INSERT INTO usuarios (email, apelido) VALUES (?, ?)", (email, apelido))
+        conn.commit()
+        session['email'] = email
+        session['apelido'] = apelido
+    # Auto-adicionar o convidante aos contatos
+    try:
+        conn.execute("INSERT INTO contatos (dono_email, contato_email, contato_apelido) VALUES (?, ?, ?)",
+                     (email, email_convidante, None))
+    except:
+        pass
+    conn.close()
+    return redirect(url_for('chat_com', email_contato=email_convidante))
+
 @app.route('/remover_contato', methods=['POST'])
 def remover_contato():
     if 'email' not in session:
