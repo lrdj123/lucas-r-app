@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Entrar{% endblock %}
+{% block content %}
+<div class="hero" style="text-align:center;padding:50px 20px 20px;">
+    <h1 style="font-size:2.5em;color:var(--green-dark);">🎙️ Voice<span style="color:var(--gold);">Mail</span></h1>
+    <p style="color:#666;font-size:1.1em;margin-top:8px;">Mensagens diretas com quem você conhece</p>
+</div>
+<div class="card" style="max-width:400px;margin:20px auto;padding:30px;">
+    <form action="{{ url_for('entrar') }}" method="POST">
+        <label style="display:block;margin-bottom:6px;font-weight:bold;">Seu e-mail</label>
+        <input type="email" name="email" required placeholder="seu@email.com" class="input-field" style="margin-bottom:12px;">
+        
+        <label style="display:block;margin-bottom:6px;font-weight:bold;">Seu apelido</label>
+        <input type="text" name="apelido" required placeholder="Como quer ser chamado" class="input-field" style="margin-bottom:20px;">
+        
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:1.1em;">
+            Entrar 🚪
+        </button>
+    </form>
+    <p style="margin-top:15px;font-size:0.8em;color:#999;text-align:center;">
+        ⚡ Só conversa com quem tem o app. Sem salas, sem código.
+    </p>
+</div>
+{% endblock %}
