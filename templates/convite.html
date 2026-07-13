@@ -1,5 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Convite{% endblock %}
+{% block og %}
+    <meta property="og:title" content="{{ convidante_apelido }} te convidou pra conversar no VoiceMail 🎙️">
+    <meta property="og:description" content="Clique e comece a conversar agora mesmo!">
+    {% if convidante_foto %}
+    <meta property="og:image" content="{{ url_for('arquivo_perfil', nome=convidante_foto, _external=True) }}">
+    {% else %}
+    <meta property="og:image" content="{{ url_for('static', filename='og-image.png', _external=True) }}">
+    {% endif %}
+    <meta property="og:image:width" content="400">
+    <meta property="og:image:height" content="400">
+    <meta property="og:type" content="website">
+{% endblock %}
 {% block content %}
 <div class="hero" style="text-align:center;padding:50px 20px 20px;">
     <h1 style="font-size:2em;color:var(--green-dark);">🎙️ Voice<span style="color:var(--gold);">Mail</span></h1>
