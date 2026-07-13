@@ -92,6 +92,7 @@
             <nav>
                 {% if session.email %}
                     <span style="color:rgba(255,255,255,0.7);font-size:0.85em;">{{ session.apelido }}</span>
+                    <a href="{{ url_for('config') }}">⚙️</a>
                     <a href="{{ url_for('sair') }}">🚪 Sair</a>
                 {% endif %}
             </nav>
