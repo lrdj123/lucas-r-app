@@ -1,15 +1,15 @@
 import os
-import uuid
 import string
 import random
 from flask import Flask, render_template, request, redirect, url_for, session
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_socketio import SocketIO, emit, join_room
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24).hex()
+# Chave fixa para não deslogar ao reiniciar
+app.secret_key = "lucas_r_secret_key_123"
 
-# IMPORTANTE: No Back4App com Eventlet, é melhor deixar o SocketIO gerenciar o servidor
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# Configuração robusta para o Back4App
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', logger=True, engineio_logger=True)
 
 # Salas na memória
 salas = {}
@@ -43,6 +43,7 @@ def criar_sala():
     codigo = gerar_codigo()
     salas[codigo] = {'mensagens': []}
     session['sala'] = codigo
+    # Redireciona usando o código gerado
     return redirect(url_for('chat', codigo=codigo))
 
 @app.route('/entrar_sala', methods=['POST'])
@@ -50,17 +51,17 @@ def entrar_sala():
     if 'email' not in session:
         return redirect(url_for('index'))
     codigo = request.form.get('codigo', '').strip().upper()
-    if codigo in salas:
-        session['sala'] = codigo
-        return redirect(url_for('chat', codigo=codigo))
-    else:
-        return redirect(url_for('salas', erro='Sala não encontrada!'))
+    if not codigo:
+        return redirect(url_for('salas'))
+    if codigo not in salas:
+        salas[codigo] = {'mensagens': []}
+    session['sala'] = codigo
+    return redirect(url_for('chat', codigo=codigo))
 
 @app.route('/chat/<codigo>')
 def chat(codigo):
     if 'email' not in session:
         return redirect(url_for('index'))
-    # Se a sala não existir na memória (servidor reiniciou), cria ela na hora pra não dar erro
     if codigo not in salas:
         salas[codigo] = {'mensagens': []}
     session['sala'] = codigo
