@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Salas{% endblock %}
+{% block content %}
+<div class="hero">
+    <h1>📁 Salas</h1>
+    <p>Entre em uma sala existente ou crie uma nova.</p>
+</div>
+
+<div style="max-width:500px;margin:30px auto;">
+    <div class="card" style="padding:25px;margin-bottom:20px;">
+        <h3 style="margin-bottom:15px;">➕ Criar Nova Sala</h3>
+        <a href="{{ url_for('criar_sala') }}" class="btn btn-primary" style="display:block;text-align:center;padding:12px;">
+            Criar Sala 🚀
+        </a>
+    </div>
+
+    <div class="card" style="padding:25px;">
+        <h3 style="margin-bottom:15px;">🔑 Entrar em Sala</h3>
+        <form action="{{ url_for('entrar_sala') }}" method="POST">
+            <label style="display:block;margin-bottom:8px;font-weight:bold;">Código da Sala</label>
+            <input type="text" name="codigo" required placeholder="Ex: ABC123"
+                   style="width:100%;padding:12px;border:2px solid #ddd;border-radius:8px;font-size:1em;text-transform:uppercase;margin-bottom:15px;">
+            <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:1.1em;">
+                Entrar 🚪
+            </button>
+        </form>
+        {% if request.args.get('erro') %}
+        <p style="color:red;margin-top:10px;">{{ request.args.get('erro') }}</p>
+        {% endif %}
+    </div>
+
+    <p style="text-align:center;margin-top:20px;font-size:0.85em;color:#999;">
+        👤 Logado como: <strong>{{ email }}</strong>
+    </p>
+</div>
+{% endblock %}
