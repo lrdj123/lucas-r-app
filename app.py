@@ -15,11 +15,11 @@ app.secret_key = os.environ.get('SECRET_KEY', 'lucas_r_secret_key_123')
 socketio = SocketIO(
     app, 
     cors_allowed_origins="*",
-    async_mode='eventlet',
     ping_timeout=60,
     ping_interval=25,
     logger=True,
-    engineio_logger=True
+    engineio_logger=True,
+    async_mode='eventlet'
 )
 
 # Armazenamento em memória (volátil)
@@ -40,7 +40,7 @@ def entrar():
     session['email'] = email
     session['apelido'] = email.split('@')[0]
     logger.info(f"Usuário entrou: {email}")
-    return redirect(url_for('salas'))
+    return redirect(url_for('salas_view'))
 
 @app.route('/salas')
 def salas_view():
@@ -64,7 +64,7 @@ def entrar_sala():
         return redirect(url_for('index'))
     codigo = request.form.get('codigo', '').strip().upper()
     if not codigo:
-        return redirect(url_for('salas'))
+        return redirect(url_for('salas_view'))
     if codigo not in salas:
         salas[codigo] = {'mensagens': []}
     session['sala'] = codigo
