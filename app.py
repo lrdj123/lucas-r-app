@@ -16,7 +16,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'voicemail_secret_123')
 # Upload
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'mp3', 'ogg', 'wav', 'webm', 'pdf', 'doc', 'docx', 'txt'}
-app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 PERFIL_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'perfil')
@@ -375,8 +375,12 @@ def upload_midia():
         return {'erro': 'Tipo não permitido'}, 400
     ext = file.filename.rsplit('.', 1)[1].lower()
     nome = f"{uuid.uuid4().hex}.{ext}"
-    file.save(os.path.join(UPLOAD_FOLDER, nome))
-    return {'arquivo': nome, 'ext': ext, 'tipo': tipo_midia(ext)}
+    try:
+        file.save(os.path.join(UPLOAD_FOLDER, nome))
+        return {'arquivo': nome, 'ext': ext, 'tipo': tipo_midia(ext)}
+    except Exception as e:
+        logger.error(f"Erro salvando arquivo: {e}")
+        return {'erro': 'Arquivo muito grande ou formato inválido'}, 413
 
 @app.route('/uploads/<nome>')
 def arquivo_upload(nome):
