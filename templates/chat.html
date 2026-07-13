@@ -23,16 +23,20 @@
     .msg-usuario .texto { font-size: 1.1em; margin-top: 3px; }
     .input-area { display: flex; gap: 10px; }
     .input-area input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; }
+    .input-area button { padding: 12px 20px; }
     .codigo-box {
         text-align: center; padding: 15px; margin-bottom: 20px;
         background: var(--green-dark); color: white; border-radius: 12px;
     }
     .codigo-box .codigo { font-size: 1.8em; font-weight: bold; letter-spacing: 4px; color: var(--gold); }
+    #status { text-align: center; padding: 5px; font-size: 0.8em; color: #666; }
+    .conectado { color: #2d6a4f !important; }
+    .erro { color: #d32f2f !important; }
 </style>
 
 <div class="hero" style="padding:30px 20px;">
     <h1>💬 Sala <span>{{ codigo }}</span></h1>
-    <p>Compartilhe o código para outros entrarem</p>
+    <p>Convide alguém com este código 👇</p>
 </div>
 
 <div class="codigo-box">
@@ -41,24 +45,33 @@
 </div>
 
 <div class="chat-area">
+    <div id="status">⏳ Conectando...</div>
     <div id="messages"></div>
     <div class="input-area">
         <input type="text" id="msgInput" placeholder="Digite sua mensagem..." autocomplete="off">
         <button class="btn btn-primary" id="sendBtn">Enviar ➤</button>
     </div>
     <p style="text-align:center;font-size:0.75em;color:#999;margin-top:10px;">
-        🚫 Print desativado | 📵 Sem rastro | 👤 {{ email }}
+        🚫 Anti-print ativo | 📵 Conversa some ao fechar | 👤 {{ email }}
     </p>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-    const socket = io();
     const codigo = '{{ codigo }}';
+    const apelido = '{{ email.split('@')[0] }}';
+    const statusDiv = document.getElementById('status');
+    
+    const socket = io({
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        rememberUpgrade: true
+    });
+    
+    console.log('Tentando conectar ao Socket.IO...');
 
-    // Anti-print
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'PrintScreen' ||
+        if (e.key === 'PrintScreen' || 
             (e.ctrlKey && e.key === 'p') ||
             (e.metaKey && e.shiftKey && ['p','i','j'].includes(e.key))) {
             e.preventDefault();
@@ -69,18 +82,43 @@
     document.addEventListener('copy', function(e) { e.preventDefault(); });
     document.addEventListener('cut', function(e) { e.preventDefault(); });
 
-    socket.emit('entrar', { sala: codigo });
+    socket.on('connect', function() {
+        console.log('Conectado! ID:', socket.id);
+        statusDiv.textContent = '✅ Conectado';
+        statusDiv.className = 'conectado';
+        
+        socket.emit('entrar', { 
+            sala: codigo,
+            apelido: apelido
+        });
+    });
+
+    socket.on('connect_error', function(error) {
+        console.error('Erro de conexão:', error);
+        statusDiv.textContent = '❌ Erro de conexão. Recarregue a página.';
+        statusDiv.className = 'erro';
+    });
 
     socket.on('historico', function(data) {
+        console.log('Histórico recebido:', data);
         const msgs = document.getElementById('messages');
         msgs.innerHTML = '';
-        data.mensagens.forEach(function(msg) { adicionarMensagem(msg); });
+        if (data.mensagens && data.mensagens.length > 0) {
+            data.mensagens.forEach(function(msg) { adicionarMensagem(msg); });
+        }
         msgs.scrollTop = msgs.scrollHeight;
     });
 
     socket.on('mensagem', function(data) {
+        console.log('Mensagem recebida:', data);
         adicionarMensagem(data);
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    });
+
+    socket.on('disconnect', function() {
+        console.log('Desconectado');
+        statusDiv.textContent = '⚠️ Desconectado';
+        statusDiv.className = 'erro';
     });
 
     function adicionarMensagem(data) {
@@ -98,9 +136,15 @@
     function enviar() {
         const input = document.getElementById('msgInput');
         const texto = input.value.trim();
-        if (texto) {
-            socket.emit('mensagem', { texto: texto });
+        if (texto && socket.connected) {
+            socket.emit('mensagem', { 
+                texto: texto,
+                sala: codigo,
+                apelido: apelido
+            });
             input.value = '';
+        } else if (!socket.connected) {
+            alert('Você está desconectado. Recarregue a página.');
         }
     }
 
