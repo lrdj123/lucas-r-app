@@ -19,7 +19,7 @@ socketio = SocketIO(
     ping_interval=25,
     logger=True,
     engineio_logger=True,
-    async_mode='eventlet'
+    async_mode='threading'
 )
 
 # Armazenamento em memória (volátil)
