@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Início{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:30px 0;">
+    {% if erro %}
+    <div style="grid-column:span 2;background:#ffeaea;color:#c0392b;padding:12px;border-radius:8px;text-align:center;">
+        ⚠️ {{ erro }}
+    </div>
+    {% endif %}
+    
+    <!-- COLUNA ESQUERDA: Conversas -->
+    <div class="card" style="padding:20px;min-height:300px;">
+        <h2 style="font-size:1.2em;color:var(--green-dark);margin-bottom:15px;">💬 Conversas</h2>
+        
+        {% if conversas %}
+            <div style="display:flex;flex-direction:column;gap:8px;">
+            {% for c in conversas %}
+                <a href="{{ url_for('chat_com', email_contato=c.outro_email) }}" 
+                   style="display:flex;justify-content:space-between;align-items:center;
+                          padding:12px;border-radius:8px;background:#f9f9f9;
+                          text-decoration:none;color:#333;transition:background 0.2s;
+                          border-left:4px solid var(--gold);"
+                   onmouseover="this.style.background='#f0f0f0'" 
+                   onmouseout="this.style.background='#f9f9f9'">
+                    <div>
+                        <strong style="color:var(--green-dark);">👤 {{ c.outro_apelido }}</strong>
+                        <div style="font-size:0.8em;color:#999;margin-top:3px;">{{ c.ultima_msg[:50] }}{% if c.ultima_msg|length > 50 %}...{% endif %}</div>
+                    </div>
+                    <span style="font-size:0.75em;color:#bbb;">{{ c.ultima_data[:10] if c.ultima_data else '—' }}</span>
+                </a>
+            {% endfor %}
+            </div>
+        {% else %}
+            <div style="text-align:center;padding:40px 0;color:#bbb;">
+                <div style="font-size:2em;margin-bottom:10px;">📭</div>
+                <p>Nenhuma conversa ainda</p>
+                <p style="font-size:0.85em;">Adicione contatos e comece a conversar!</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- COLUNA DIREITA: Contatos -->
+    <div class="card" style="padding:20px;min-height:300px;">
+        <h2 style="font-size:1.2em;color:var(--green-dark);margin-bottom:15px;">📇 Contatos</h2>
+        
+        <form action="{{ url_for('adicionar_contato') }}" method="POST" style="display:flex;gap:8px;margin-bottom:15px;">
+            <input type="email" name="email" required placeholder="email@dapessoa" class="input-field" style="flex:1;">
+            <button type="submit" class="btn btn-primary" style="white-space:nowrap;">➕</button>
+        </form>
+        
+        {% if contatos %}
+            <div style="display:flex;flex-direction:column;gap:6px;">
+            {% for c in contatos %}
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            padding:10px 12px;border-radius:8px;background:#f9f9f9;">
+                    <div>
+                        <strong style="color:var(--green-dark);">👤 {{ c.apelido }}</strong>
+                        <div style="font-size:0.8em;color:#aaa;">{{ c.contato_email }}</div>
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                        <a href="{{ url_for('chat_com', email_contato=c.contato_email) }}" 
+                           class="btn btn-primary" style="padding:5px 12px;font-size:0.85em;">💬</a>
+                        <form action="{{ url_for('remover_contato') }}" method="POST" style="display:inline;" 
+                              onsubmit="return confirm('Remover contato?')">
+                            <input type="hidden" name="email" value="{{ c.contato_email }}">
+                            <button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:1.1em;padding:5px;">✕</button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <div style="text-align:center;padding:30px 0;color:#bbb;">
+                <p style="font-size:0.9em;">Adicione o email de alguém<br>que também usa o VoiceMail</p>
+            </div>
+        {% endif %}
+        
+        <p style="margin-top:15px;font-size:0.8em;color:#bbb;text-align:center;">
+            Só aparecem pessoas cadastradas no app
+        </p>
+    </div>
+</div>
+{% endblock %}
