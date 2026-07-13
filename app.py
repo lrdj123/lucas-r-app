@@ -19,6 +19,9 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'mp3', 'ogg', 
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+PERFIL_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'perfil')
+os.makedirs(PERFIL_FOLDER, exist_ok=True)
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -45,6 +48,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS usuarios (
             email TEXT PRIMARY KEY,
             apelido TEXT NOT NULL,
+            foto_perfil TEXT DEFAULT NULL,
+            papel_parede TEXT DEFAULT 'default',
             criado_em TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE IF NOT EXISTS contatos (
@@ -75,13 +80,21 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_mensagens_conversa ON mensagens(conversa_id, criada_em);
     ''')
+    # Migração: adicionar colunas se não existirem (para quem já tem o banco)
+    try:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN foto_perfil TEXT DEFAULT NULL")
+    except:
+        pass
+    try:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN papel_parede TEXT DEFAULT 'default'")
+    except:
+        pass
     conn.commit()
     conn.close()
 
-# Executa init_db UMA VEZ ao carregar o script
 init_db()
 
-# Socket.IO (Configurado após as definições globais)
+# Socket.IO
 socketio = SocketIO(app, cors_allowed_origins="*",
                     ping_timeout=60, ping_interval=25,
                     logger=True, engineio_logger=True,
@@ -151,24 +164,29 @@ def home():
     conversas = []
     for r in rows:
         outro = r['email2'] if r['email1'] == email else r['email1']
-        outro_user = conn.execute("SELECT apelido FROM usuarios WHERE email=?", (outro,)).fetchone()
+        outro_user = conn.execute("SELECT apelido, foto_perfil FROM usuarios WHERE email=?", (outro,)).fetchone()
         conversas.append({
             'id': r['id'],
             'outro_email': outro,
             'outro_apelido': outro_user['apelido'] if outro_user else outro,
+            'outro_foto': outro_user['foto_perfil'] if outro_user and outro_user['foto_perfil'] else None,
             'ultima_msg': r['ultima_msg'] or 'Nenhuma mensagem ainda',
             'ultima_data': r['ultima_data']
         })
     # Buscar contatos
     contatos = conn.execute("""
-        SELECT c.contato_email, COALESCE(c.contato_apelido, u.apelido) as apelido
+        SELECT c.contato_email, COALESCE(c.contato_apelido, u.apelido) as apelido, u.foto_perfil
         FROM contatos c
         LEFT JOIN usuarios u ON u.email = c.contato_email
         WHERE c.dono_email=?
         ORDER BY apelido
     """, (email,)).fetchall()
+    # Pegar minha própria foto
+    eu = conn.execute("SELECT foto_perfil FROM usuarios WHERE email=?", (email,)).fetchone()
+    minha_foto = eu['foto_perfil'] if eu and eu['foto_perfil'] else None
     conn.close()
-    return render_template('home.html', conversas=conversas, contatos=[dict(c) for c in contatos], erro=erro)
+    return render_template('home.html', conversas=conversas, contatos=[dict(c) for c in contatos],
+                           erro=erro, minha_foto=minha_foto)
 
 @app.route('/adicionar_contato', methods=['POST'])
 def adicionar_contato():
@@ -180,7 +198,6 @@ def adicionar_contato():
     if email_contato == session['email']:
         return redirect(url_for('home'))
     conn = get_db()
-    # Verifica se o contato existe no sistema
     user = conn.execute("SELECT * FROM usuarios WHERE email=?", (email_contato,)).fetchone()
     if not user:
         conn.close()
@@ -190,7 +207,7 @@ def adicionar_contato():
                      (session['email'], email_contato))
         conn.commit()
     except:
-        pass  # já existe
+        pass
     conn.close()
     return redirect(url_for('home'))
 
@@ -217,8 +234,11 @@ def chat_com(email_contato):
     if not outro:
         conn.close()
         return redirect(url_for('home'))
+    # Meu papel de parede
+    eu = conn.execute("SELECT papel_parede, foto_perfil FROM usuarios WHERE email=?", (session['email'],)).fetchone()
+    papel_parede = eu['papel_parede'] if eu and eu['papel_parede'] else 'default'
+    minha_foto = eu['foto_perfil'] if eu and eu['foto_perfil'] else None
     conv_id = pegar_ou_criar_conversa(session['email'], email_contato)
-    # Carregar histórico
     msgs = conn.execute("""
         SELECT id, remetente, texto, midia_json, criada_em
         FROM mensagens WHERE conversa_id=?
@@ -234,7 +254,10 @@ def chat_com(email_contato):
     return render_template('chat_direto.html', email_contato=email_contato,
                            email_logado=session['email'],
                            outro_apelido=outro['apelido'],
-                           historico=historico, conv_id=conv_id)
+                           outro_foto=outro['foto_perfil'] if outro['foto_perfil'] else None,
+                           minha_foto=minha_foto,
+                           historico=historico, conv_id=conv_id,
+                           papel_parede=papel_parede)
 
 @app.route('/sair')
 def sair():
@@ -259,6 +282,10 @@ def upload_midia():
 def arquivo_upload(nome):
     return send_from_directory(UPLOAD_FOLDER, nome)
 
+@app.route('/perfil/<nome>')
+def arquivo_perfil(nome):
+    return send_from_directory(PERFIL_FOLDER, nome)
+
 @app.route('/apagar_mensagem', methods=['POST'])
 def apagar_mensagem():
     if 'email' not in session:
@@ -270,13 +297,81 @@ def apagar_mensagem():
     if not msg_id:
         return {'ok': False}, 400
     conn = get_db()
-    # Só apaga se a mensagem for do próprio usuário
     msg = conn.execute("SELECT remetente FROM mensagens WHERE id=? AND conversa_id=?", (msg_id, conv_id)).fetchone()
     if msg and msg['remetente'] == email:
         conn.execute("DELETE FROM mensagens WHERE id=?", (msg_id,))
         conn.commit()
     conn.close()
     return {'ok': True}
+
+# ─── Configurações ──────────────────────────────────────────
+@app.route('/config')
+def config():
+    if 'email' not in session:
+        return redirect(url_for('index'))
+    conn = get_db()
+    eu = conn.execute("SELECT * FROM usuarios WHERE email=?", (session['email'],)).fetchone()
+    conn.close()
+    return render_template('config.html', usuario=eu)
+
+@app.route('/salvar_apelido', methods=['POST'])
+def salvar_apelido():
+    if 'email' not in session:
+        return {'ok': False}, 401
+    novo_apelido = request.form.get('apelido', '').strip()
+    if novo_apelido:
+        conn = get_db()
+        conn.execute("UPDATE usuarios SET apelido=? WHERE email=?", (novo_apelido, session['email']))
+        conn.commit()
+        conn.close()
+        session['apelido'] = novo_apelido
+    return redirect(url_for('config'))
+
+@app.route('/upload_foto_perfil', methods=['POST'])
+def upload_foto_perfil():
+    if 'email' not in session:
+        return {'ok': False}, 401
+    if 'foto' not in request.files:
+        return redirect(url_for('config'))
+    file = request.files['foto']
+    if not file.filename:
+        return redirect(url_for('config'))
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'png'
+    if ext not in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
+        return redirect(url_for('config'))
+    nome = f"perfil_{session['email'].replace('@','_').replace('.','_')}.{ext}"
+    file.save(os.path.join(PERFIL_FOLDER, nome))
+    conn = get_db()
+    conn.execute("UPDATE usuarios SET foto_perfil=? WHERE email=?", (nome, session['email']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('config'))
+
+@app.route('/remover_foto_perfil', methods=['POST'])
+def remover_foto_perfil():
+    if 'email' not in session:
+        return redirect(url_for('index'))
+    conn = get_db()
+    eu = conn.execute("SELECT foto_perfil FROM usuarios WHERE email=?", (session['email'],)).fetchone()
+    if eu and eu['foto_perfil']:
+        caminho = os.path.join(PERFIL_FOLDER, eu['foto_perfil'])
+        if os.path.exists(caminho):
+            os.remove(caminho)
+    conn.execute("UPDATE usuarios SET foto_perfil=NULL WHERE email=?", (session['email'],))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('config'))
+
+@app.route('/escolher_papel', methods=['POST'])
+def escolher_papel():
+    if 'email' not in session:
+        return redirect(url_for('index'))
+    papel = request.form.get('papel', 'default')
+    conn = get_db()
+    conn.execute("UPDATE usuarios SET papel_parede=? WHERE email=?", (papel, session['email']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('config'))
 
 # ─── Socket.IO ──────────────────────────────────────────────
 @socketio.on('connect')
