@@ -63,10 +63,11 @@
     .input-area input[type="text"] { flex:1;padding:12px;border:2px solid #ddd;border-radius:20px;font-size:1em;outline:none; }
     .input-area input[type="text"]:focus { border-color:var(--gold); }
     .btn-midia { background:none;border:2px solid #ddd;border-radius:50%;padding:8px 10px;font-size:1.1em;cursor:pointer;transition:0.2s;line-height:1;width:40px;height:40px;text-align:center; }
+    .btn-midia, .btn-audio, .btn-camera { background:none;border:2px solid #ddd;border-radius:50%;padding:8px 10px;font-size:1.1em;cursor:pointer;transition:0.2s;line-height:1;width:40px;height:40px;text-align:center; }
     .btn-midia:hover { border-color:var(--gold);background:#fff8e7; }
-    .btn-audio { background:none;border:2px solid #ddd;border-radius:50%;padding:8px 10px;font-size:1.1em;cursor:pointer;transition:0.2s;line-height:1;width:40px;height:40px;text-align:center; }
     .btn-audio:hover { border-color:var(--gold);background:#fff8e7; }
-    .btn-audio.gravando { border-color:#e74c3c;background:#ffeaea;animation:pulse-mic 1s infinite; }
+    .btn-camera:hover { border-color:var(--gold);background:#fff8e7; }
+    .btn-audio.gravando, .btn-camera.gravando { border-color:#e74c3c;background:#ffeaea;animation:pulse-mic 1s infinite; }
     @keyframes pulse-mic { 0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.4)} 50%{box-shadow:0 0 0 10px rgba(231,76,60,0)} }
     #fileInput { display:none; }
     .upload-status { font-size:0.8em;color:#666;text-align:center;padding:4px; }
@@ -94,6 +95,26 @@
     .sticker-picker img:hover { background:var(--cream); transform:scale(1.15); }
     #messages .sticker-msg { text-align:center; padding:4px 0; }
     #messages .sticker-msg img { max-width:150px; max-height:150px; display:inline-block; }
+
+    /* Dark Mode para o chat */
+    body.dark-mode .chat-header { background: #1a1a2e; border-color: #333; }
+    body.dark-mode .chat-header strong { color: #e0e0e0 !important; }
+    body.dark-mode #status { background: #1a1a2e; color: #aaa; }
+    body.dark-mode #messages { background: #121212 !important; }
+    body.dark-mode .msg-minha { background: #1a3c34; }
+    body.dark-mode .msg-outro { background: #2a2a3e; }
+    body.dark-mode .msg-minha .hora, body.dark-mode .msg-outro .hora { color: #888; }
+    body.dark-mode .input-area { background: #1a1a2e; border-color: #333; }
+    body.dark-mode #msgInput { background: #2a2a3e; color: #e0e0e0; border-color: #444; }
+    body.dark-mode #msgInput::placeholder { color: #666; }
+    body.dark-mode .emoji-picker, body.dark-mode .sticker-picker { background: #1e1e2e; }
+    body.dark-mode .emoji-picker span:hover, body.dark-mode .sticker-picker img:hover { background: #333; }
+    body.dark-mode .btn-sticker, body.dark-mode .btn-emoji, body.dark-mode .btn-midia,
+    body.dark-mode .btn-audio, body.dark-mode .btn-camera { border-color: #444; color: #ccc; }
+    body.dark-mode .btn-sticker:hover, body.dark-mode .btn-emoji:hover, body.dark-mode .btn-midia:hover,
+    body.dark-mode .btn-audio:hover, body.dark-mode .btn-camera:hover { border-color: var(--gold); }
+    body.dark-mode .msg-sistema { color: #888; }
+    body.dark-mode .sticker-picker img { background: transparent; }
 </style>
 
 <div class="chat-page">
@@ -170,6 +191,7 @@
     <div class="input-area">
         <button class="btn-sticker" id="stickerBtn" title="Stickers animados">🎭</button>
         <button class="btn-emoji" id="emojiBtn" title="Emojis">😊</button>
+        <button class="btn-camera" id="cameraBtn" title="Gravar vídeo">📹</button>
         <button class="btn-midia" id="midiaBtn" title="Enviar mídia">📎</button>
         <button class="btn-audio" id="audioBtn" title="Gravar áudio">🎙️</button>
         <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
@@ -363,6 +385,71 @@
                 gravando = true; btn.textContent = '⏹️'; btn.className = 'btn-audio gravando';
             })
             .catch(e => alert('Erro no microfone: ' + e.message));
+    };
+
+    // Câmera - Gravar Vídeo
+    let mediaRecorderVideo = null, videoChunks = [], gravandoVideo = false;
+    document.getElementById('cameraBtn').onclick = function() {
+        const btn = this;
+        if (gravandoVideo) {
+            if (mediaRecorderVideo && mediaRecorderVideo.state !== 'inactive') mediaRecorderVideo.stop();
+            return;
+        }
+        if (!navigator.mediaDevices?.getUserMedia) { alert('Câmera não suportada.'); return; }
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
+            .then(stream => {
+                videoChunks = [];
+                mediaRecorderVideo = new MediaRecorder(stream, {
+                    mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9'
+                           : MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8'
+                           : 'video/webm'
+                });
+                mediaRecorderVideo.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
+                mediaRecorderVideo.onstop = function() {
+                    stream.getTracks().forEach(t => t.stop());
+                    const blob = new Blob(videoChunks, { type: 'video/webm' });
+                    const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
+                    const status = document.getElementById('uploadStatus');
+                    status.textContent = '📤 Enviando vídeo...';
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    fetch('/upload', { method: 'POST', body: formData })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.erro) { status.textContent = '❌ ' + data.erro; return; }
+                            status.textContent = '';
+                            socket.emit('mensagem_privada', {
+                                conv_id: convId, remetente: emailLogado, apelido: apelido,
+                                texto: '', destino: emailContato, midia: data
+                            });
+                        })
+                        .catch(e => { status.textContent = '❌ Erro: ' + e.message; });
+                    gravandoVideo = false; btn.textContent = '📹'; btn.className = 'btn-camera';
+                };
+                mediaRecorderVideo.start();
+                gravandoVideo = true; btn.textContent = '⏹️'; btn.className = 'btn-camera gravando';
+                const previewDiv = document.createElement('div');
+                previewDiv.id = 'cameraPreview';
+                previewDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+                const videoEl = document.createElement('video');
+                videoEl.srcObject = stream;
+                videoEl.style.cssText = 'max-width:100%;max-height:80%;border-radius:12px;';
+                videoEl.autoplay = true;
+                videoEl.muted = true;
+                videoEl.playsInline = true;
+                const stopBtn = document.createElement('button');
+                stopBtn.textContent = '⏹️ Parar Gravação';
+                stopBtn.style.cssText = 'margin-top:15px;padding:12px 30px;background:#e74c3c;color:white;border:none;border-radius:25px;font-size:1.1em;cursor:pointer;';
+                stopBtn.onclick = () => {
+                    if (mediaRecorderVideo && mediaRecorderVideo.state !== 'inactive') mediaRecorderVideo.stop();
+                    previewDiv.remove();
+                };
+                previewDiv.appendChild(videoEl);
+                previewDiv.appendChild(stopBtn);
+                document.body.appendChild(previewDiv);
+                setTimeout(() => { if (document.getElementById('cameraPreview')) { stream.getTracks().forEach(t => t.stop()); mediaRecorderVideo.stop(); document.getElementById('cameraPreview').remove(); } }, 30000);
+            })
+            .catch(e => alert('Erro na câmera: ' + e.message));
     };
 
     // Apagar mensagem (via socket - reflete pros dois)
