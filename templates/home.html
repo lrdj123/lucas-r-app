@@ -3,120 +3,140 @@
 {% block content %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <style>
-    .foto-conversa { width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0; }
-    .foto-conversa-placeholder { width:40px;height:40px;border-radius:50%;background:var(--green-dark);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1em;border:2px solid var(--gold); }
-    .foto-contato { width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0; }
-    .foto-contato-placeholder { width:32px;height:32px;border-radius:50%;background:var(--green-dark);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.8em;border:2px solid var(--gold); }
+    .home-container { padding: 10px; max-width: 600px; margin: 0 auto; }
+    .section-title { 
+        font-size: 0.9em; color: var(--green-light); 
+        text-transform: uppercase; letter-spacing: 1px; 
+        margin: 20px 0 10px 5px; font-weight: bold;
+        display: flex; align-items: center; gap: 8px;
+    }
+    
+    .list-card {
+        background: white; border-radius: 12px; 
+        box-shadow: var(--shadow); overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .item-link {
+        display: flex; align-items: center; gap: 12px;
+        padding: 15px; text-decoration: none; color: inherit;
+        border-bottom: 1px solid #f0f0f0; transition: background 0.2s;
+    }
+    .item-link:last-child { border-bottom: none; }
+    .item-link:hover { background: #f9f9f9; }
+    
+    .foto-circle {
+        width: 50px; height: 50px; border-radius: 50%;
+        object-fit: cover; border: 2px solid var(--gold);
+        flex-shrink: 0;
+    }
+    .foto-placeholder {
+        width: 50px; height: 50px; border-radius: 50%;
+        background: var(--green-dark); color: var(--gold);
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; font-size: 1.2em; border: 2px solid var(--gold);
+    }
+    
+    .item-info { flex: 1; min-width: 0; }
+    .item-name { font-weight: bold; color: var(--green-dark); margin-bottom: 2px; }
+    .item-last-msg { 
+        font-size: 0.85em; color: #777; 
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    }
+    
+    .add-contato-box {
+        background: white; border-radius: 12px; padding: 15px;
+        box-shadow: var(--shadow); margin-top: 10px;
+    }
 </style>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:30px 0;">
+<div class="home-container">
     {% if erro %}
-    <div style="grid-column:span 2;background:#ffeaea;color:#c0392b;padding:12px;border-radius:8px;text-align:center;">
+    <div style="background:#ffeaea;color:#c0392b;padding:12px;border-radius:8px;text-align:center;margin-bottom:15px;">
         ⚠️ {{ erro }}
     </div>
     {% endif %}
-    
-    <!-- COLUNA ESQUERDA: Conversas -->
-    <div class="card" style="padding:20px;min-height:300px;">
-        <h2 style="font-size:1.2em;color:var(--green-dark);margin-bottom:15px;">💬 Conversas</h2>
-        
+
+    <!-- CONVERSAS -->
+    <div class="section-title"><i class="fas fa-comments"></i> Conversas</div>
+    <div class="list-card">
         {% if conversas %}
-            <div style="display:flex;flex-direction:column;gap:8px;">
             {% for c in conversas %}
-                <a href="{{ url_for('chat_com', email_contato=c.outro_email) }}" 
-                   style="display:flex;align-items:center;gap:10px;
-                          padding:12px;border-radius:8px;background:#f9f9f9;
-                          text-decoration:none;color:#333;transition:background 0.2s;
-                          border-left:4px solid var(--gold);"
-                   onmouseover="this.style.background='#f0f0f0'" 
-                   onmouseout="this.style.background='#f9f9f9'">
-                    {% if c.outro_foto %}
-                        <img src="/perfil/{{ c.outro_foto }}" class="foto-conversa">
-                    {% else %}
-                        <div class="foto-conversa-placeholder">👤</div>
-                    {% endif %}
-                    <div style="flex:1;min-width:0;">
-                        <strong style="color:var(--green-dark);">{{ c.outro_apelido }}</strong>
-                        <div style="font-size:0.8em;color:#999;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.ultima_msg[:50] }}{% if c.ultima_msg|length > 50 %}...{% endif %}</div>
-                    </div>
-                    <span style="font-size:0.75em;color:#bbb;white-space:nowrap;">{{ c.ultima_data[:10] if c.ultima_data else '—' }}</span>
-                </a>
+            <a href="{{ url_for('chat_com', email_contato=c.outro_email) }}" class="item-link">
+                {% if c.outro_foto %}
+                    <img src="/perfil/{{ c.outro_foto }}" class="foto-circle">
+                {% else %}
+                    <div class="foto-placeholder">{{ c.outro_apelido[0].upper() }}</div>
+                {% endif %}
+                <div class="item-info">
+                    <div class="item-name">{{ c.outro_apelido }}</div>
+                    <div class="item-last-msg">{{ c.ultima_msg }}</div>
+                </div>
+                <div style="font-size:0.7em;color:#bbb;">
+                    {{ c.ultima_data.split(' ')[1][:5] if c.ultima_data else '' }}
+                </div>
+            </a>
             {% endfor %}
-            </div>
         {% else %}
-            <div style="text-align:center;padding:40px 0;color:#bbb;">
-                <div style="font-size:2em;margin-bottom:10px;">📭</div>
-                <p>Nenhuma conversa ainda</p>
-                <p style="font-size:0.85em;">Adicione contatos e comece a conversar!</p>
+            <div style="padding:40px 20px;text-align:center;color:#999;">
+                <div style="font-size:3em;margin-bottom:10px;">📬</div>
+                <p>Nenhuma conversa ainda.<br>Use seu link de convite!</p>
             </div>
         {% endif %}
     </div>
-    
-    <!-- COLUNA DIREITA: Contatos -->
-    <div class="card" style="padding:20px;min-height:300px;">
-        <h2 style="font-size:1.2em;color:var(--green-dark);margin-bottom:15px;">📇 Contatos</h2>
-        
-        <form action="{{ url_for('adicionar_contato') }}" method="POST" style="display:flex;gap:8px;margin-bottom:15px;">
-            <input type="email" name="email" required placeholder="email@dapessoa" class="input-field" style="flex:1;">
-            <button type="submit" class="btn btn-primary" style="white-space:nowrap;">➕</button>
-        </form>
-        
+
+    <!-- CONTATOS -->
+    <div class="section-title"><i class="fas fa-address-book"></i> Contatos</div>
+    <div class="list-card">
         {% if contatos %}
-            <div style="display:flex;flex-direction:column;gap:6px;">
             {% for c in contatos %}
-                <div style="display:flex;justify-content:space-between;align-items:center;
-                            padding:10px 12px;border-radius:8px;background:#f9f9f9;">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        {% if c.foto_perfil %}
-                            <img src="/perfil/{{ c.foto_perfil }}" class="foto-contato">
-                        {% else %}
-                            <div class="foto-contato-placeholder">👤</div>
-                        {% endif %}
-                        <div>
-                            <strong style="color:var(--green-dark);">{{ c.apelido }}</strong>
-                            <div style="font-size:0.8em;color:#aaa;">{{ c.contato_email }}</div>
-                        </div>
-                    </div>
-                    <div style="display:flex;gap:6px;">
-                        <a href="{{ url_for('chat_com', email_contato=c.contato_email) }}" 
-                           class="btn btn-primary" style="padding:5px 12px;font-size:0.85em;">💬</a>
-                        <form action="{{ url_for('remover_contato') }}" method="POST" style="display:inline;" 
-                              onsubmit="return confirm('Remover contato?')">
-                            <input type="hidden" name="email" value="{{ c.contato_email }}">
-                            <button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:1.1em;padding:5px;">✕</button>
-                        </form>
-                    </div>
+            <a href="{{ url_for('chat_com', email_contato=c.contato_email) }}" class="item-link">
+                {% if c.foto_perfil %}
+                    <img src="/perfil/{{ c.foto_perfil }}" class="foto-circle" style="width:40px; height:40px;">
+                {% else %}
+                    <div class="foto-placeholder" style="width:40px; height:40px; font-size:1em;">{{ c.apelido[0].upper() }}</div>
+                {% endif %}
+                <div class="item-info">
+                    <div class="item-name" style="font-size:0.95em;">{{ c.apelido }}</div>
+                    <div style="font-size:0.75em;color:#aaa;">{{ c.contato_email }}</div>
                 </div>
+                <form action="{{ url_for('remover_contato') }}" method="POST" style="margin:0;" onclick="event.stopPropagation();">
+                    <input type="hidden" name="email" value="{{ c.contato_email }}">
+                    <button type="submit" style="background:none;border:none;color:#ddd;cursor:pointer;padding:5px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </form>
+            </a>
             {% endfor %}
-            </div>
         {% else %}
-            <div style="text-align:center;padding:30px 0;color:#bbb;">
-                <p style="font-size:0.9em;">Adicione o email de alguém<br>que também usa o VoiceMail</p>
+            <div style="padding:20px;text-align:center;color:#ccc;font-size:0.9em;">
+                Lista de contatos vazia
             </div>
         {% endif %}
-        
-        <p style="margin-top:15px;font-size:0.8em;color:#bbb;text-align:center;">
-            Só aparecem pessoas cadastradas no app
-        </p>
+    </div>
+
+    <!-- ADICIONAR MANUAL -->
+    <div class="add-contato-box">
+        <h3 style="font-size:0.85em;color:#999;margin-bottom:10px;text-transform:uppercase;">Adicionar por E-mail</h3>
+        <form action="{{ url_for('adicionar_contato') }}" method="POST" style="display:flex;gap:8px;">
+            <input type="email" name="email" placeholder="amigo@email.com" required 
+                   class="input-field" style="padding:8px 12px;font-size:0.9em;">
+            <button type="submit" class="btn btn-primary" style="padding:8px 15px;">
+                <i class="fas fa-user-plus"></i>
+            </button>
+        </form>
     </div>
 </div>
 
-<script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 <script>
-    // Pedir permissão de notificação
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-    }
+    const socket = io();
+    socket.emit('registrar_usuario', { email: "{{ session.email }}" });
 
-    const email = "{{ session.email }}";
-    const socket = io({ transports: ['websocket', 'polling'] });
-
-    socket.on('connect', function() {
-        socket.emit('registrar_usuario', { email: email });
-    });
-
-    socket.on('notificacao_mensagem', function(data) {
-        // Som
+    socket.on('notificacao_geral', function(data) {
+        if (data.remetente === "{{ session.email }}") return;
+        
+        // Tocar som
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
@@ -124,35 +144,28 @@
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(523, ctx.currentTime);
-            osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(587, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(659, ctx.currentTime + 0.1);
             gain.gain.setValueAtTime(0.3, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
             osc.start(ctx.currentTime);
             osc.stop(ctx.currentTime + 0.25);
         } catch(e) {}
 
-        // Notificação
         if ('Notification' in window && Notification.permission === 'granted') {
             const nome = data.apelido || data.remetente;
-            const textoNotif = data.texto || (data.midia ? (data.midia.tipo === 'imagem' ? '📷 Foto' : data.midia.tipo === 'audio' ? '🎤 Áudio' : '📎 Arquivo') : '');
-            const notif = new Notification('💬 ' + nome, {
-                body: textoNotif,
+            new Notification('💬 ' + nome, {
+                body: data.texto || 'Nova mídia recebida',
                 icon: '/static/favicon.png'
-            });
-            notif.onclick = function() {
-                window.location.href = '/chat/' + data.remetente;
-            };
+            }).onclick = () => window.location.href = '/chat/' + data.remetente;
         }
-
-        // Piscar título
-        if (!document.hasFocus()) {
-            document.title = '💬 Nova mensagem - VoiceMail';
-            document.addEventListener('visibilitychange', function onVisChange() {
-                document.removeEventListener('visibilitychange', onVisChange);
-                document.title = 'VoiceMail';
-            });
-        }
+        
+        // Recarregar para atualizar última mensagem (simples por enquanto)
+        setTimeout(() => location.reload(), 1000);
     });
+
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
 </script>
 {% endblock %}
