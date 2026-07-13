@@ -5,13 +5,26 @@
     @media print { body { display: none !important; } }
     .chat-page { display:flex;flex-direction:column;height:calc(100vh - 130px);padding:10px 0; }
     .chat-header {
-        background:white;padding:12px 20px;border-radius:12px 12px 0 0;
+        background:white;padding:8px 15px;border-radius:12px 12px 0 0;
         box-shadow:var(--shadow);display:flex;justify-content:space-between;align-items:center;
     }
-    .chat-header a { color:var(--green-dark);text-decoration:none;font-size:0.9em; }
+    .chat-header a { color:var(--green-dark);text-decoration:none;font-size:0.85em; }
+    .chat-header .contato-info { display:flex;align-items:center;gap:10px; }
+    .chat-header .foto-mini {
+        width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+        border: 2px solid var(--gold); vertical-align: middle;
+    }
+    .chat-header .foto-mini-placeholder {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: var(--green-dark); color: var(--gold);
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 0.8em; vertical-align: middle; border: 2px solid var(--gold);
+    }
+    .chat-header a { color:var(--green-dark);text-decoration:none;font-size:0.85em; }
     #messages {
-        flex:1;overflow-y:auto;padding:15px;background:white;
+        flex:1;overflow-y:auto;padding:15px;
         box-shadow:var(--shadow);user-select:none;-webkit-user-select:none;
+        background-size:cover;background-position:center;background-attachment:fixed;
     }
     #messages::-webkit-scrollbar { width: 6px; }
     #messages::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
@@ -61,9 +74,16 @@
 
 <div class="chat-page">
     <div class="chat-header">
-        <div>
-            <strong style="color:var(--green-dark);">👤 {{ outro_apelido }}</strong>
-            <span style="font-size:0.8em;color:#999;"> ({{ email_contato }})</span>
+        <div class="contato-info">
+            {% if outro_foto %}
+                <img src="/perfil/{{ outro_foto }}" class="foto-mini">
+            {% else %}
+                <div class="foto-mini-placeholder">👤</div>
+            {% endif %}
+            <div>
+                <strong style="color:var(--green-dark);">{{ outro_apelido }}</strong>
+                <span style="font-size:0.8em;color:#999;"> ({{ email_contato }})</span>
+            </div>
         </div>
         <a href="{{ url_for('home') }}">⬅ Voltar</a>
     </div>
@@ -133,6 +153,21 @@
     const socket = io({ transports: ['websocket', 'polling'] });
     const statusDiv = document.getElementById('status');
     const msgsDiv = document.getElementById('messages');
+
+    // Papel de parede
+    const papelParede = "{{ papel_parede }}";
+    const coresPapeis = {
+        'default': '#ffffff',
+        'verde_claro': '#e8f5e9',
+        'azul_claro': '#e3f2fd',
+        'bege': '#fff8e1',
+        'rosa_claro': '#fce4ec',
+        'lilas': '#f3e5f5',
+        'cinza_claro': '#eceff1'
+    };
+    if (papelParede !== 'default') {
+        msgsDiv.style.backgroundColor = coresPapeis[papelParede] || '#ffffff';
+    }
 
     socket.on('connect', function() {
         statusDiv.textContent = '🟢 Conectado';
