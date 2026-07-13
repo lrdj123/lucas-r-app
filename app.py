@@ -1,6 +1,7 @@
 import os
 import string
 import random
+import time
 import logging
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_socketio import SocketIO, emit, join_room
@@ -106,6 +107,10 @@ def handle_entrar(data):
             'texto': f'{apelido} entrou na sala 🟢'
         }, room=codigo)
         
+        # Garantir que mensagens históricas tenham id
+        for m in salas[codigo]['mensagens']:
+            if 'id' not in m:
+                m['id'] = f"{m.get('apelido','anon')}-{int(time.time()*1000)}-{random.randint(1000,9999)}"
         emit('historico', {'mensagens': salas[codigo]['mensagens']})
     except Exception as e:
         logger.error(f"Erro ao entrar na sala: {e}")
@@ -122,12 +127,29 @@ def handle_mensagem(data):
             return
             
         if texto:
-            msg = {'tipo': 'usuario', 'apelido': apelido, 'texto': texto}
+            msg_id = data.get('id') or f"{apelido}-{int(time.time()*1000)}"
+            msg = {'id': msg_id, 'tipo': 'usuario', 'apelido': apelido, 'texto': texto}
             salas[codigo]['mensagens'].append(msg)
             emit('mensagem', msg, room=codigo)
             logger.info(f"Mensagem em {codigo}: {apelido}")
     except Exception as e:
         logger.error(f"Erro ao enviar mensagem: {e}")
+
+@socketio.on('apagar_mensagem')
+def handle_apagar_mensagem(data):
+    try:
+        codigo = data.get('sala')
+        msg_id = data.get('id')
+        apelido = data.get('apelido', '')
+        
+        if not codigo or codigo not in salas:
+            return
+        
+        salas[codigo]['mensagens'] = [m for m in salas[codigo]['mensagens'] if m.get('id') != msg_id]
+        emit('mensagem_apagada', {'id': msg_id, 'apelido': apelido}, room=codigo)
+        logger.info(f"Mensagem {msg_id} apagada em {codigo}")
+    except Exception as e:
+        logger.error(f"Erro ao apagar mensagem: {e}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
