@@ -1,38 +1,30 @@
 import os
-import string
-import random
-import time
+import sqlite3
 import uuid
+import time
 import logging
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify
 from flask_socketio import SocketIO, emit, join_room
-from werkzeug.utils import secure_filename
 
-# Configurar logging para debug
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'lucas_r_secret_key_123')
-# Configuração do Socket.IO
-socketio = SocketIO(
-    app, 
-    cors_allowed_origins="*",
-    ping_timeout=60,
-    ping_interval=25,
-    logger=True,
-    engineio_logger=True,
-    async_mode='threading'
-)
+app.secret_key = os.environ.get('SECRET_KEY', 'voicemail_secret_123')
 
-# Armazenamento em memória (volátil)
-salas = {}
+# Socket.IO
+socketio = SocketIO(app, cors_allowed_origins="*",
+                    ping_timeout=60, ping_interval=25,
+                    logger=True, engineio_logger=True,
+                    async_mode='threading')
 
-# Configuração de upload
+# Inicializar banco
+init_db()
+
+# Upload
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'mp3', 'ogg', 'wav', 'webm', 'pdf', 'doc', 'docx', 'txt'}
-MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20MB
-app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
@@ -45,140 +37,206 @@ def tipo_midia(ext):
         return 'video'
     elif ext in {'mp3','ogg','wav'}:
         return 'audio'
-    else:
-        return 'arquivo'
+    return 'arquivo'
 
-def gerar_codigo():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+# ─── Banco SQLite ───────────────────────────────────────────
+DB_PATH = os.path.join(os.path.dirname(__file__), 'voicemail.db')
 
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db()
+    conn.executescript('''
+        CREATE TABLE IF NOT EXISTS usuarios (
+            email TEXT PRIMARY KEY,
+            apelido TEXT NOT NULL,
+            criado_em TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS contatos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            dono_email TEXT NOT NULL,
+            contato_email TEXT NOT NULL,
+            contato_apelido TEXT,
+            adicionado_em TEXT DEFAULT (datetime('now')),
+            UNIQUE(dono_email, contato_email),
+            FOREIGN KEY(dono_email) REFERENCES usuarios(email),
+            FOREIGN KEY(contato_email) REFERENCES usuarios(email)
+        );
+        CREATE TABLE IF NOT EXISTS conversas (
+            id TEXT PRIMARY KEY,
+            email1 TEXT NOT NULL,
+            email2 TEXT NOT NULL,
+            criada_em TEXT DEFAULT (datetime('now')),
+            UNIQUE(email1, email2)
+        );
+        CREATE TABLE IF NOT EXISTS mensagens (
+            id TEXT PRIMARY KEY,
+            conversa_id TEXT NOT NULL,
+            remetente TEXT NOT NULL,
+            texto TEXT DEFAULT '',
+            midia_json TEXT,
+            criada_em TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY(conversa_id) REFERENCES conversas(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_mensagens_conversa ON mensagens(conversa_id, criada_em);
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ─── Utilitários ────────────────────────────────────────────
+def pegar_ou_criar_conversa(email1, email2):
+    a, b = sorted([email1.lower(), email2.lower()])
+    conn = get_db()
+    row = conn.execute("SELECT id FROM conversas WHERE email1=? AND email2=?", (a, b)).fetchone()
+    if row:
+        conn.close()
+        return row['id']
+    conv_id = str(uuid.uuid4())
+    conn.execute("INSERT INTO conversas (id, email1, email2) VALUES (?, ?, ?)", (conv_id, a, b))
+    conn.commit()
+    conn.close()
+    return conv_id
+
+def sala_id(conversa_id):
+    return f"conv_{conversa_id}"
+
+# ─── Rotas ──────────────────────────────────────────────────
 @app.route('/')
 def index():
-    return render_template('index.html')
+    if 'email' in session:
+        return redirect(url_for('home'))
+    return render_template('login.html')
 
 @app.route('/entrar', methods=['POST'])
 def entrar():
-    email = request.form.get('email', '').strip()
+    email = request.form.get('email', '').strip().lower()
+    apelido = request.form.get('apelido', '').strip()
     if not email or '@' not in email:
         return redirect(url_for('index'))
-    session['email'] = email
-    session['apelido'] = email.split('@')[0]
-    logger.info(f"Usuário entrou: {email}")
-    return redirect(url_for('salas_view'))
+    conn = get_db()
+    user = conn.execute("SELECT * FROM usuarios WHERE email=?", (email,)).fetchone()
+    if user:
+        session['email'] = email
+        session['apelido'] = user['apelido']
+    else:
+        if not apelido:
+            apelido = email.split('@')[0]
+        conn.execute("INSERT INTO usuarios (email, apelido) VALUES (?, ?)", (email, apelido))
+        conn.commit()
+        session['email'] = email
+        session['apelido'] = apelido
+    conn.close()
+    return redirect(url_for('home'))
 
-@app.route('/salas')
-def salas_view():
+@app.route('/home')
+def home():
     if 'email' not in session:
         return redirect(url_for('index'))
-    return render_template('salas.html', email=session['email'])
+    email = session['email']
+    erro = request.args.get('erro', '')
+    conn = get_db()
+    # Buscar conversas do usuário
+    rows = conn.execute("""
+        SELECT c.id, c.email1, c.email2,
+               (SELECT texto FROM mensagens WHERE conversa_id = c.id ORDER BY criada_em DESC LIMIT 1) as ultima_msg,
+               (SELECT criada_em FROM mensagens WHERE conversa_id = c.id ORDER BY criada_em DESC LIMIT 1) as ultima_data
+        FROM conversas c
+        WHERE c.email1=? OR c.email2=?
+        ORDER BY ultima_data DESC
+    """, (email, email)).fetchall()
+    conversas = []
+    for r in rows:
+        outro = r['email2'] if r['email1'] == email else r['email1']
+        outro_user = conn.execute("SELECT apelido FROM usuarios WHERE email=?", (outro,)).fetchone()
+        conversas.append({
+            'id': r['id'],
+            'outro_email': outro,
+            'outro_apelido': outro_user['apelido'] if outro_user else outro,
+            'ultima_msg': r['ultima_msg'] or 'Nenhuma mensagem ainda',
+            'ultima_data': r['ultima_data']
+        })
+    # Buscar contatos
+    contatos = conn.execute("""
+        SELECT c.contato_email, COALESCE(c.contato_apelido, u.apelido) as apelido
+        FROM contatos c
+        LEFT JOIN usuarios u ON u.email = c.contato_email
+        WHERE c.dono_email=?
+        ORDER BY apelido
+    """, (email,)).fetchall()
+    conn.close()
+    return render_template('home.html', conversas=conversas, contatos=[dict(c) for c in contatos], erro=erro)
 
-@app.route('/criar_sala')
-def criar_sala():
+@app.route('/adicionar_contato', methods=['POST'])
+def adicionar_contato():
     if 'email' not in session:
         return redirect(url_for('index'))
-    codigo = gerar_codigo()
-    salas[codigo] = {'mensagens': []}
-    session['sala'] = codigo
-    logger.info(f"Sala criada: {codigo}")
-    return redirect(url_for('chat', codigo=codigo))
-
-@app.route('/entrar_sala', methods=['POST'])
-def entrar_sala():
-    if 'email' not in session:
-        return redirect(url_for('index'))
-    codigo = request.form.get('codigo', '').strip().upper()
-    if not codigo:
-        return redirect(url_for('salas_view'))
-    if codigo not in salas:
-        salas[codigo] = {'mensagens': []}
-    session['sala'] = codigo
-    logger.info(f"Usuário entrou na sala: {codigo}")
-    return redirect(url_for('chat', codigo=codigo))
-
-@app.route('/chat/<codigo>')
-def chat(codigo):
-    if 'email' not in session:
-        return redirect(url_for('index'))
-    if codigo not in salas:
-        salas[codigo] = {'mensagens': []}
-    session['sala'] = codigo
-    return render_template('chat.html', codigo=codigo, email=session['email'])
-
-# CORREÇÃO: Usar request.sid e passar dados via cliente para evitar problemas de session
-@socketio.on('connect')
-def handle_connect():
-    logger.info(f"Cliente conectado: {request.sid}")
-
-@socketio.on('entrar')
-def handle_entrar(data):
+    email_contato = request.form.get('email', '').strip().lower()
+    if not email_contato or '@' not in email_contato:
+        return redirect(url_for('home'))
+    if email_contato == session['email']:
+        return redirect(url_for('home'))
+    conn = get_db()
+    # Verifica se o contato existe no sistema
+    user = conn.execute("SELECT * FROM usuarios WHERE email=?", (email_contato,)).fetchone()
+    if not user:
+        conn.close()
+        return redirect(url_for('home', erro='Pessoa não cadastrada no VoiceMail'))
     try:
-        codigo = data.get('sala')
-        apelido = data.get('apelido', 'Anônimo')
-        
-        if not codigo:
-            logger.error("Código da sala não fornecido")
-            return
-            
-        if codigo not in salas:
-            salas[codigo] = {'mensagens': []}
-            
-        join_room(codigo)
-        logger.info(f"{apelido} entrou na sala {codigo}")
-        
-        emit('mensagem', {
-            'tipo': 'sistema',
-            'texto': f'{apelido} entrou na sala 🟢'
-        }, room=codigo)
-        
-        # Garantir que mensagens históricas tenham id
-        for m in salas[codigo]['mensagens']:
-            if 'id' not in m:
-                m['id'] = f"{m.get('apelido','anon')}-{int(time.time()*1000)}-{random.randint(1000,9999)}"
-        emit('historico', {'mensagens': salas[codigo]['mensagens']})
-    except Exception as e:
-        logger.error(f"Erro ao entrar na sala: {e}")
+        conn.execute("INSERT INTO contatos (dono_email, contato_email) VALUES (?, ?)",
+                     (session['email'], email_contato))
+        conn.commit()
+    except:
+        pass  # já existe
+    conn.close()
+    return redirect(url_for('home'))
 
-@socketio.on('mensagem')
-def handle_mensagem(data):
-    try:
-        codigo = data.get('sala')
-        apelido = data.get('apelido', 'Anônimo')
-        texto = data.get('texto', '').strip()
-        midia = data.get('midia')
-        
-        if not codigo or codigo not in salas:
-            logger.error(f"Sala inválida: {codigo}")
-            return
-            
-        if texto or midia:
-            msg_id = data.get('id') or f"{apelido}-{int(time.time()*1000)}"
-            msg = {'id': msg_id, 'tipo': 'usuario', 'apelido': apelido, 'texto': texto}
-            if midia:
-                msg['midia'] = midia
-            salas[codigo]['mensagens'].append(msg)
-            emit('mensagem', msg, room=codigo)
-            logger.info(f"Mensagem em {codigo}: {apelido}" + (" (mídia)" if midia else ""))
-    except Exception as e:
-        logger.error(f"Erro ao enviar mensagem: {e}")
+@app.route('/remover_contato', methods=['POST'])
+def remover_contato():
+    if 'email' not in session:
+        return redirect(url_for('index'))
+    email_contato = request.form.get('email', '')
+    conn = get_db()
+    conn.execute("DELETE FROM contatos WHERE dono_email=? AND contato_email=?", (session['email'], email_contato))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('home'))
 
-@socketio.on('apagar_mensagem')
-def handle_apagar_mensagem(data):
-    try:
-        codigo = data.get('sala')
-        msg_id = data.get('id')
-        apelido = data.get('apelido', '')
-        
-        if not codigo or codigo not in salas:
-            return
-        
-        salas[codigo]['mensagens'] = [m for m in salas[codigo]['mensagens'] if m.get('id') != msg_id]
-        emit('mensagem_apagada', {'id': msg_id, 'apelido': apelido}, room=codigo)
-        logger.info(f"Mensagem {msg_id} apagada em {codigo}")
-    except Exception as e:
-        logger.error(f"Erro ao apagar mensagem: {e}")
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    logger.info(f"Cliente desconectado: {request.sid}")
+@app.route('/chat/<email_contato>')
+def chat_com(email_contato):
+    if 'email' not in session:
+        return redirect(url_for('index'))
+    email_contato = email_contato.lower()
+    if email_contato == session['email']:
+        return redirect(url_for('home'))
+    conn = get_db()
+    outro = conn.execute("SELECT * FROM usuarios WHERE email=?", (email_contato,)).fetchone()
+    if not outro:
+        conn.close()
+        return redirect(url_for('home'))
+    conv_id = pegar_ou_criar_conversa(session['email'], email_contato)
+    # Carregar histórico
+    msgs = conn.execute("""
+        SELECT id, remetente, texto, midia_json, criada_em
+        FROM mensagens WHERE conversa_id=?
+        ORDER BY criada_em ASC LIMIT 200
+    """, (conv_id,)).fetchall()
+    conn.close()
+    historico = []
+    for m in msgs:
+        msg = {'id': m['id'], 'remetente': m['remetente'], 'texto': m['texto'], 'data': m['criada_em']}
+        if m['midia_json']:
+            import json
+            msg['midia'] = json.loads(m['midia_json'])
+        historico.append(msg)
+    return render_template('chat_direto.html', email_contato=email_contato,
+                           email_logado=session['email'],
+                           outro_apelido=outro['apelido'],
+                           historico=historico, conv_id=conv_id)
 
 @app.route('/sair')
 def sair():
@@ -189,30 +247,61 @@ def sair():
 def upload_midia():
     if 'email' not in session:
         return {'erro': 'Não autenticado'}, 401
-    
     if 'file' not in request.files:
-        return {'erro': 'Nenhum arquivo enviado'}, 400
-    
+        return {'erro': 'Nenhum arquivo'}, 400
     file = request.files['file']
-    if file.filename == '':
-        return {'erro': 'Nome de arquivo vazio'}, 400
-    
-    if not allowed_file(file.filename):
-        return {'erro': 'Tipo de arquivo não permitido'}, 400
-    
+    if not file.filename or not allowed_file(file.filename):
+        return {'erro': 'Tipo não permitido'}, 400
     ext = file.filename.rsplit('.', 1)[1].lower()
-    nome_unico = f"{uuid.uuid4().hex}.{ext}"
-    file.save(os.path.join(UPLOAD_FOLDER, nome_unico))
-    
-    return {
-        'arquivo': nome_unico,
-        'ext': ext,
-        'tipo': tipo_midia(ext)
-    }
+    nome = f"{uuid.uuid4().hex}.{ext}"
+    file.save(os.path.join(UPLOAD_FOLDER, nome))
+    return {'arquivo': nome, 'ext': ext, 'tipo': tipo_midia(ext)}
 
 @app.route('/uploads/<nome>')
 def arquivo_upload(nome):
     return send_from_directory(UPLOAD_FOLDER, nome)
+
+# ─── Socket.IO ──────────────────────────────────────────────
+@socketio.on('connect')
+def handle_connect():
+    logger.info(f"Cliente conectado: {request.sid}")
+
+@socketio.on('entrar_chat')
+def handle_entrar_chat(data):
+    conv_id = data.get('conv_id')
+    if conv_id:
+        join_room(sala_id(conv_id))
+        logger.info(f"Cliente entrou na conversa {conv_id}")
+
+@socketio.on('mensagem_privada')
+def handle_mensagem(data):
+    try:
+        conv_id = data.get('conv_id')
+        remetente = data.get('remetente', '')
+        texto = data.get('texto', '').strip()
+        midia = data.get('midia')
+        if not conv_id or not remetente:
+            return
+        if not texto and not midia:
+            return
+        msg_id = f"{remetente}-{int(time.time()*1000)}"
+        conn = get_db()
+        midia_json = None
+        if midia:
+            import json
+            midia_json = json.dumps(midia)
+        conn.execute(
+            "INSERT INTO mensagens (id, conversa_id, remetente, texto, midia_json) VALUES (?, ?, ?, ?, ?)",
+            (msg_id, conv_id, remetente, texto, midia_json)
+        )
+        conn.commit()
+        conn.close()
+        msg = {'id': msg_id, 'remetente': remetente, 'texto': texto}
+        if midia:
+            msg['midia'] = midia
+        emit('nova_mensagem', msg, room=sala_id(conv_id))
+    except Exception as e:
+        logger.error(f"Erro mensagem: {e}")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8080)
