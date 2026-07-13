@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}Lucas R{% endblock %}</title>
+    <style>
+        :root {
+            --green-dark: #1a3c34;
+            --green-light: #2d6a4f;
+            --gold: #c9a84c;
+            --cream: #faf8f0;
+            --shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--cream);
+            color: #333;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 15px; }
+        header {
+            background: var(--green-dark);
+            padding: 15px 0;
+        }
+        .header-inner {
+            max-width: 1000px; margin: 0 auto; padding: 0 15px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .logo {
+            color: white; text-decoration: none; font-size: 1.3em;
+        }
+        .logo span { color: var(--gold); }
+        nav a {
+            color: white; text-decoration: none; margin-left: 15px;
+            padding: 6px 14px; border-radius: 6px; font-size: 0.9em;
+        }
+        nav a:hover { background: rgba(255,255,255,0.15); }
+        .hero {
+            text-align: center; padding: 60px 20px;
+        }
+        .hero h1 { font-size: 2.5em; color: var(--green-dark); }
+        .hero h1 span { color: var(--gold); }
+        .hero p { color: #666; font-size: 1.1em; margin-top: 10px; }
+        .card {
+            background: white; border-radius: 12px; box-shadow: var(--shadow);
+        }
+        .btn {
+            display: inline-block; padding: 8px 20px; border-radius: 8px;
+            text-decoration: none; border: none; cursor: pointer;
+            font-size: 0.95em; font-weight: 500;
+        }
+        .btn-primary {
+            background: var(--gold); color: var(--green-dark);
+        }
+        .btn-primary:hover { background: #b8973a; }
+        footer {
+            background: var(--green-dark); color: var(--cream);
+            text-align: center; padding: 20px; margin-top: 40px;
+        }
+        footer p { opacity: 0.7; font-size: 0.85em; }
+        @media (max-width: 768px) {
+            .header-inner { flex-direction: column; gap: 10px; }
+            .hero h1 { font-size: 1.8em; }
+            nav a { margin: 0 5px; font-size: 0.8em; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="/" class="logo">💬 Lucas <span>R</span></a>
+            <nav>
+                {% if session.email %}
+                    <a href="{{ url_for('salas') }}">📁 Salas</a>
+                    <a href="{{ url_for('sair') }}">🚪 Sair</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>💬 Lucas R &copy; 2026 — Chat temporário. Sem rastro.</p>
+    </footer>
+</body>
+</html>
