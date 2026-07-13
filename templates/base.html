@@ -33,6 +33,25 @@
             --gold: #c9a84c;
             --cream: #faf8f0;
             --shadow: 0 4px 15px rgba(0,0,0,0.1);
+            --bg-principal: #ffffff;
+            --bg-card: #ffffff;
+            --texto: #333333;
+            --borda: #ddd;
+            --hover-card: #f5f5f5;
+        }
+        body.dark-mode {
+            --green-dark: #0d2818;
+            --gold: #d4a843;
+            --cream: #1a1a2e;
+            --shadow: 0 4px 15px rgba(0,0,0,0.4);
+            --bg-principal: #121212;
+            --bg-card: #1e1e2e;
+            --texto: #e0e0e0;
+            --borda: #333;
+            --hover-card: #2a2a3e;
+            background: #121212 !important;
+            color: #e0e0e0 !important;
+            background-image: none !important;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -55,7 +74,7 @@
                 } %}
                 background: {{ fundos_cores.get(meu_fundo, 'var(--cream)') }};
             {% endif %}
-            color: #333;
+            color: var(--texto);
             user-select: none;
             -webkit-user-select: none;
             min-height: 100vh;
@@ -81,7 +100,7 @@
         }
         nav a:hover { background: rgba(255,255,255,0.15); }
         .card {
-            background: white; border-radius: 12px; box-shadow: var(--shadow);
+            background: var(--bg-card); border-radius: 12px; box-shadow: var(--shadow);
         }
         .btn {
             display: inline-block; padding: 8px 20px; border-radius: 8px;
@@ -103,8 +122,10 @@
         }
         footer p { opacity: 0.7; font-size: 0.8em; }
         .input-field {
-            width: 100%; padding: 12px; border: 2px solid #ddd;
+            width: 100%; padding: 12px; border: 2px solid var(--borda);
             border-radius: 8px; font-size: 1em; outline: none;
+            background: var(--bg-card);
+            color: var(--texto);
             transition: border 0.2s;
         }
         .input-field:focus { border-color: var(--gold); }
@@ -128,6 +149,7 @@
                         {% endif %}
                         <span style="color:rgba(255,255,255,0.9);font-size:0.85em;font-weight:bold;">{{ session.apelido }}</span>
                     </a>
+                    <button id="darkToggle" style="background:none;border:1px solid rgba(255,255,255,0.3);border-radius:50%;color:white;font-size:1em;width:34px;height:34px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:0.2s;" title="Modo escuro">🌙</button>
                     <a href="{{ url_for('sair') }}" style="margin-left:10px;opacity:0.7;font-size:0.8em;">🚪 Sair</a>
                 {% endif %}
             </nav>
@@ -141,5 +163,23 @@
     <footer>
         <p>🎙️ VoiceMail &copy; 2026 — <span style="opacity:0.5;">Lucas R</span></p>
     </footer>
+<script>
+(function() {
+    const toggle = document.getElementById('darkToggle');
+    const isDark = localStorage.getItem('voicemail_dark') === 'true';
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+        if (toggle) toggle.textContent = '☀️';
+    }
+    if (toggle) {
+        toggle.onclick = function() {
+            document.body.classList.toggle('dark-mode');
+            const ativo = document.body.classList.contains('dark-mode');
+            localStorage.setItem('voicemail_dark', ativo ? 'true' : 'false');
+            this.textContent = ativo ? '☀️' : '🌙';
+        };
+    }
+})();
+</script>
 </body>
 </html>
