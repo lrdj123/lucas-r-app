@@ -89,8 +89,41 @@
         </form>
     </div>
 
+    <div class="config-card">
+        <h2>🔗 Meu Link de Convite</h2>
+        <p style="font-size:0.85em;color:#999;margin-bottom:10px;">
+            Compartilhe esse link. Quem clicar já cai no chat com você!
+        </p>
+        <div style="display:flex;gap:8px;">
+            <input type="text" id="linkConvite" readonly
+                   value="{{ url_for('pagina_convite', email_convidante=usuario.email, _external=True) }}"
+                   class="input-field" style="flex:1;font-size:0.85em;text-align:center;"
+                   onclick="this.select()">
+            <button onclick="copiarLink()" class="btn btn-primary" style="white-space:nowrap;">📋 Copiar</button>
+        </div>
+        <p style="font-size:0.8em;color:#bbb;margin-top:8px;text-align:center;">
+            Exemplo: alquem clica e já pode te mandar mensagem
+        </p>
+    </div>
+
     <div style="text-align:center;margin-top:10px;">
         <a href="{{ url_for('home') }}" class="btn" style="background:#ddd;color:#666;padding:10px 25px;border-radius:8px;text-decoration:none;">⬅ Voltar</a>
     </div>
 </div>
+
+<script>
+function copiarLink() {
+    const input = document.getElementById('linkConvite');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(() => {
+        const btn = event.target;
+        const original = btn.textContent;
+        btn.textContent = '✅ Copiado!';
+        setTimeout(() => btn.textContent = original, 2000);
+    }).catch(() => {
+        alert('Selecione o link e copie manualmente');
+    });
+}
+</script>
 {% endblock %}
