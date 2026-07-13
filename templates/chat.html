@@ -36,6 +36,22 @@
         transition: all 0.2s; line-height: 1;
     }
     .btn-midia:hover { border-color: var(--gold); background: #fff8e7; }
+    .btn-audio {
+        background: none; border: 2px solid #ddd; border-radius: 50%;
+        padding: 10px 12px; font-size: 1.2em; cursor: pointer;
+        transition: all 0.2s; line-height: 1; width: 44px; height: 44px;
+        text-align: center;
+    }
+    .btn-audio:hover { border-color: var(--gold); background: #fff8e7; }
+    .btn-audio.gravando {
+        border-color: #e74c3c; background: #ffeaea;
+        animation: pulse-mic 1s infinite;
+    }
+    @keyframes pulse-mic {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); }
+        50% { box-shadow: 0 0 0 10px rgba(231,76,60,0); }
+    }
+    .gravando-texto { color: #e74c3c; font-size: 0.8em; font-weight: bold; }
     #fileInput { display: none; }
     .msg-midia {
         margin: 6px 0; padding: 8px 12px; border-radius: 8px;
@@ -81,6 +97,7 @@
     <div id="uploadStatus" class="upload-status"></div>
     <div class="input-area">
         <button class="btn-midia" id="midiaBtn" title="Enviar mídia">📎</button>
+        <button class="btn-audio" id="audioBtn" title="Gravar áudio">🎙️</button>
         <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
         <input type="text" id="msgInput" placeholder="Digite sua mensagem..." autocomplete="off">
         <button class="btn btn-primary" id="sendBtn">Enviar ➤</button>
@@ -235,6 +252,84 @@
     document.getElementById('sendBtn').onclick = enviar;
     document.getElementById('msgInput').onkeydown = function(e) {
         if (e.key === 'Enter') enviar();
+    };
+
+    // 🎙️ Gravação de áudio
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let gravando = false;
+
+    document.getElementById('audioBtn').onclick = function() {
+        const btn = this;
+        if (gravando) {
+            // Parar gravação
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            return;
+        }
+
+        // Iniciar gravação
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Seu navegador não suporta gravação de áudio.');
+            return;
+        }
+
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' });
+                
+                mediaRecorder.ondataavailable = function(e) {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = function() {
+                    // Parar as tracks do microfone
+                    stream.getTracks().forEach(t => t.stop());
+
+                    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+                    const ext = mediaRecorder.mimeType.includes('webm') ? 'webm' : 'mp4';
+                    const file = new File([blob], `audio_${Date.now()}.${ext}`, { type: mediaRecorder.mimeType });
+
+                    const status = document.getElementById('uploadStatus');
+                    status.textContent = '📤 Enviando áudio...';
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    fetch('/upload', { method: 'POST', body: formData })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.erro) {
+                                status.textContent = '❌ ' + data.erro;
+                                return;
+                            }
+                            status.textContent = '';
+                            socket.emit('mensagem', {
+                                texto: '',
+                                sala: codigo,
+                                apelido: apelido,
+                                midia: data
+                            });
+                        })
+                        .catch(e => {
+                            status.textContent = '❌ Erro: ' + e.message;
+                        });
+
+                    gravando = false;
+                    btn.textContent = '🎙️';
+                    btn.className = 'btn-audio';
+                };
+
+                mediaRecorder.start();
+                gravando = true;
+                btn.textContent = '⏹️';
+                btn.className = 'btn-audio gravando';
+            })
+            .catch(e => {
+                alert('Não foi possível acessar o microfone: ' + e.message);
+            });
     };
 
     // Upload de mídia
