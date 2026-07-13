@@ -4,7 +4,7 @@
 <style>
     .config-page { padding: 30px 0; max-width: 600px; margin: 0 auto; }
     .config-card {
-        background: white; border-radius: 12px; padding: 25px;
+        background: var(--bg-card); border-radius: 12px; padding: 25px;
         box-shadow: var(--shadow); margin-bottom: 20px;
     }
     .config-card h2 { font-size: 1.1em; color: var(--green-dark); margin-bottom: 15px; }
@@ -28,6 +28,10 @@
     .btn-cinza { background: #ddd; color: #666; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85em; }
     .miniatura-fundo { width:100%;height:120px;border-radius:8px;object-fit:cover;border:2px solid var(--gold); }
     .preview-emoji { font-size: 3em; text-align: center; padding: 10px; }
+    body.dark-mode .config-card { background: #1e1e2e; border: 1px solid #333; }
+    body.dark-mode .config-card h2 { color: var(--gold); }
+    body.dark-mode .config-card p { color: #aaa !important; }
+    body.dark-mode .btn-cinza { background: #333; color: #ccc; }
 </style>
 
 <div class="config-page">
