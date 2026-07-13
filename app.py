@@ -259,6 +259,25 @@ def upload_midia():
 def arquivo_upload(nome):
     return send_from_directory(UPLOAD_FOLDER, nome)
 
+@app.route('/apagar_mensagem', methods=['POST'])
+def apagar_mensagem():
+    if 'email' not in session:
+        return {'ok': False, 'erro': 'Não autenticado'}, 401
+    data = request.get_json()
+    msg_id = data.get('msg_id', '')
+    conv_id = data.get('conv_id', '')
+    email = data.get('email', '')
+    if not msg_id:
+        return {'ok': False}, 400
+    conn = get_db()
+    # Só apaga se a mensagem for do próprio usuário
+    msg = conn.execute("SELECT remetente FROM mensagens WHERE id=? AND conversa_id=?", (msg_id, conv_id)).fetchone()
+    if msg and msg['remetente'] == email:
+        conn.execute("DELETE FROM mensagens WHERE id=?", (msg_id,))
+        conn.commit()
+    conn.close()
+    return {'ok': True}
+
 # ─── Socket.IO ──────────────────────────────────────────────
 @socketio.on('connect')
 def handle_connect():
@@ -299,6 +318,24 @@ def handle_mensagem(data):
         emit('nova_mensagem', msg, room=sala_id(conv_id))
     except Exception as e:
         logger.error(f"Erro mensagem: {e}")
+
+@socketio.on('apagar_mensagem')
+def handle_apagar(data):
+    try:
+        msg_id = data.get('msg_id', '')
+        conv_id = data.get('conv_id', '')
+        email = data.get('email', '')
+        if not msg_id or not conv_id or not email:
+            return
+        conn = get_db()
+        msg = conn.execute("SELECT remetente FROM mensagens WHERE id=? AND conversa_id=?", (msg_id, conv_id)).fetchone()
+        if msg and msg['remetente'] == email:
+            conn.execute("DELETE FROM mensagens WHERE id=?", (msg_id,))
+            conn.commit()
+        conn.close()
+        emit('msg_apagada', {'id': msg_id, 'remetente': email}, room=sala_id(conv_id))
+    except Exception as e:
+        logger.error(f"Erro apagar: {e}")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8080)
