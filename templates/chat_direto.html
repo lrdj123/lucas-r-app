@@ -154,6 +154,11 @@
     const statusDiv = document.getElementById('status');
     const msgsDiv = document.getElementById('messages');
 
+    // Pedir permissão de notificação
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+
     // Papel de parede
     const papelParede = "{{ papel_parede }}";
     const coresPapeis = {
@@ -188,7 +193,7 @@
         const div = document.createElement('div');
         div.id = 'msg-' + data.id;
         div.className = isMine ? 'msg-minha' : 'msg-outro';
-        let html = '<div class="autor">' + (isMine ? 'Você' : apelido) + '</div>';
+        let html = '<div class="autor">' + (isMine ? 'Você' : outroApelido) + '</div>';
         if (data.midia) {
             if (data.midia.tipo === 'imagem') html += '<img src="/uploads/' + data.midia.arquivo + '" onclick="window.open(this.src)" loading="lazy">';
             else if (data.midia.tipo === 'video') html += '<video controls preload="metadata"><source src="/uploads/' + data.midia.arquivo + '"></video>';
@@ -200,6 +205,43 @@
         div.innerHTML = html;
         msgsDiv.appendChild(div);
         msgsDiv.scrollTop = msgsDiv.scrollHeight;
+
+        // 🔔 NOTIFICAÇÃO
+        if (!isMine) {
+            // Som
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523, ctx.currentTime);
+                osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.25);
+            } catch(e) {}
+
+            // Notificação do sistema
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const textoNotif = data.texto || (data.midia ? (data.midia.tipo === 'imagem' ? '📷 Foto' : data.midia.tipo === 'audio' ? '🎤 Áudio' : '📎 Arquivo') : '');
+                new Notification('💬 ' + outroApelido, {
+                    body: textoNotif,
+                    icon: '/static/favicon.png'
+                });
+            }
+
+            // Piscar título
+            if (!document.hasFocus()) {
+                document.title = '💬 ' + outroApelido + ' - VoiceMail';
+                document.addEventListener('visibilitychange', function onVisChange() {
+                    document.removeEventListener('visibilitychange', onVisChange);
+                    document.title = 'Chat - VoiceMail';
+                });
+            }
+        }
     });
 
     function enviar() {
