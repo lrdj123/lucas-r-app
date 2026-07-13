@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'lucas_r_secret_key_123')
-app.config['SESSION_TYPE'] = 'filesystem'
-
-# CORREÇÃO: Configuração mais robusta do Socket.IO
+# Configuração do Socket.IO
 socketio = SocketIO(
     app, 
     cors_allowed_origins="*",
