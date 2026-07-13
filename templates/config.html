@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Configurações{% endblock %}
+{% block content %}
+<style>
+    .config-page { padding: 30px 0; max-width: 600px; margin: 0 auto; }
+    .config-card {
+        background: white; border-radius: 12px; padding: 25px;
+        box-shadow: var(--shadow); margin-bottom: 20px;
+    }
+    .config-card h2 { font-size: 1.1em; color: var(--green-dark); margin-bottom: 15px; }
+    .foto-grande {
+        width: 100px; height: 100px; border-radius: 50%;
+        object-fit: cover; border: 3px solid var(--gold);
+        display: block; margin: 0 auto 15px;
+    }
+    .foto-placeholder {
+        width: 100px; height: 100px; border-radius: 50%;
+        background: var(--green-dark); color: var(--gold);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 2.5em; margin: 0 auto 15px;
+    }
+    .opcao-papel {
+        display: inline-block; width: 60px; height: 60px; border-radius: 8px;
+        cursor: pointer; border: 3px solid transparent; transition: 0.2s;
+        vertical-align: middle;
+    }
+    .opcao-papel:hover, .opcao-papel.ativo { border-color: var(--gold); }
+    .btn-cinza { background: #ddd; color: #666; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85em; }
+</style>
+
+<div class="config-page">
+    <div class="config-card" style="text-align:center;">
+        <h2>👤 Meu Perfil</h2>
+        
+        {% if usuario.foto_perfil %}
+            <img src="/perfil/{{ usuario.foto_perfil }}" class="foto-grande">
+        {% else %}
+            <div class="foto-placeholder">📷</div>
+        {% endif %}
+
+        <form action="{{ url_for('upload_foto_perfil') }}" method="POST" enctype="multipart/form-data" style="margin-bottom:10px;">
+            <label style="background:var(--gold);color:var(--green-dark);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:0.9em;font-weight:bold;">
+                📸 Escolher Foto
+                <input type="file" name="foto" accept="image/*" style="display:none;" onchange="this.form.submit()">
+            </label>
+        </form>
+        
+        {% if usuario.foto_perfil %}
+        <form action="{{ url_for('remover_foto_perfil') }}" method="POST" style="display:inline;">
+            <button class="btn-cinza">🗑️ Remover</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="config-card">
+        <h2>✏️ Apelido</h2>
+        <form action="{{ url_for('salvar_apelido') }}" method="POST" style="display:flex;gap:8px;">
+            <input type="text" name="apelido" value="{{ usuario.apelido }}" class="input-field" style="flex:1;">
+            <button class="btn btn-primary">Salvar</button>
+        </form>
+    </div>
+
+    <div class="config-card">
+        <h2>🎨 Papel de Parede do Chat</h2>
+        <p style="font-size:0.85em;color:#999;margin-bottom:15px;">Escolha uma cor de fundo para suas conversas</p>
+        
+        <form action="{{ url_for('escolher_papel') }}" method="POST" id="papelForm">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:15px;">
+                {% set papeis = [
+                    ('default', '#faf8f0', 'Creme'),
+                    ('claro', '#e8f5e9', 'Verde Claro'),
+                    ('azul', '#e3f2fd', 'Azul Claro'),
+                    ('gelo', '#f5f5f5', 'Gelo'),
+                    ('areia', '#fff3e0', 'Areia'),
+                    ('lilas', '#f3e5f5', 'Lilás'),
+                    ('escuro', '#2c3e50', 'Escuro'),
+                    ('verde_escuro', '#1a3c34', 'Verde Escuro')
+                ] %}
+                {% for valor, cor, nome in papeis %}
+                <label style="text-align:center;cursor:pointer;">
+                    <div class="opcao-papel" style="background:{{ cor }};{% if usuario.papel_parede == valor %}border-color:var(--gold);{% endif %}"></div>
+                    <input type="radio" name="papel" value="{{ valor }}" style="display:none;"
+                        {% if usuario.papel_parede == valor %}checked{% endif %}
+                        onchange="document.getElementById('papelForm').submit()">
+                    <div style="font-size:0.7em;color:#999;margin-top:4px;">{{ nome }}</div>
+                </label>
+                {% endfor %}
+            </div>
+        </form>
+    </div>
+
+    <div style="text-align:center;margin-top:10px;">
+        <a href="{{ url_for('home') }}" class="btn" style="background:#ddd;color:#666;padding:10px 25px;border-radius:8px;text-decoration:none;">⬅ Voltar</a>
+    </div>
+</div>
+{% endblock %}
