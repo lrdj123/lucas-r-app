@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Chat{% endblock %}
+{% block content %}
+<style>
+    @media print { body { display: none !important; } }
+    .chat-page { display:flex;flex-direction:column;height:calc(100vh - 130px);padding:10px 0; }
+    .chat-header {
+        background:white;padding:12px 20px;border-radius:12px 12px 0 0;
+        box-shadow:var(--shadow);display:flex;justify-content:space-between;align-items:center;
+    }
+    .chat-header a { color:var(--green-dark);text-decoration:none;font-size:0.9em; }
+    #messages {
+        flex:1;overflow-y:auto;padding:15px;background:white;
+        box-shadow:var(--shadow);user-select:none;-webkit-user-select:none;
+    }
+    #messages::-webkit-scrollbar { width: 6px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+    .msg-sistema { color:#999;font-style:italic;font-size:0.85em;margin:8px 0;text-align:center; }
+    .msg-minha, .msg-outro {
+        margin:4px 0;padding:8px 14px;border-radius:12px;
+        max-width:85%;word-wrap:break-word;position:relative;
+    }
+    .msg-minha {
+        background:#dcf8c6;margin-left:auto;
+        border-bottom-right-radius:4px;
+    }
+    .msg-outro {
+        background:#f0f0f0;margin-right:auto;
+        border-bottom-left-radius:4px;
+    }
+    .msg-minha .autor { font-size:0.7em;color:#666;margin-bottom:2px;text-align:right; }
+    .msg-outro .autor { font-size:0.7em;color:#666;margin-bottom:2px; }
+    .msg-minha .texto, .msg-outro .texto { font-size:1em; }
+    .msg-minha .hora, .msg-outro .hora { font-size:0.65em;color:#999;text-align:right;margin-top:3px; }
+    .msg-minha img, .msg-outro img { max-width:100%;max-height:250px;border-radius:8px;margin-top:5px;cursor:pointer;display:block; }
+    .msg-minha video, .msg-outro video { max-width:100%;max-height:250px;border-radius:8px;margin-top:5px; }
+    .msg-minha audio, .msg-outro audio { width:100%;margin-top:5px; }
+    .msg-minha .arquivo-link, .msg-outro .arquivo-link {
+        display:inline-block;margin-top:5px;padding:5px 10px;
+        background:var(--green-dark);color:white;border-radius:6px;
+        text-decoration:none;font-size:0.85em;
+    }
+    .btn-apagar {
+        cursor:pointer;font-size:0.7em;opacity:0.3;transition:opacity 0.2s;
+        margin-left:6px;
+    }
+    .btn-apagar:hover { opacity:1; }
+    .input-area { display:flex;gap:8px;align-items:center;padding:10px;background:white;border-radius:0 0 12px 12px;box-shadow:var(--shadow); }
+    .input-area input[type="text"] { flex:1;padding:12px;border:2px solid #ddd;border-radius:20px;font-size:1em;outline:none; }
+    .input-area input[type="text"]:focus { border-color:var(--gold); }
+    .btn-midia { background:none;border:2px solid #ddd;border-radius:50%;padding:8px 10px;font-size:1.1em;cursor:pointer;transition:0.2s;line-height:1;width:40px;height:40px;text-align:center; }
+    .btn-midia:hover { border-color:var(--gold);background:#fff8e7; }
+    .btn-audio { background:none;border:2px solid #ddd;border-radius:50%;padding:8px 10px;font-size:1.1em;cursor:pointer;transition:0.2s;line-height:1;width:40px;height:40px;text-align:center; }
+    .btn-audio:hover { border-color:var(--gold);background:#fff8e7; }
+    .btn-audio.gravando { border-color:#e74c3c;background:#ffeaea;animation:pulse-mic 1s infinite; }
+    @keyframes pulse-mic { 0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.4)} 50%{box-shadow:0 0 0 10px rgba(231,76,60,0)} }
+    #fileInput { display:none; }
+    .upload-status { font-size:0.8em;color:#666;text-align:center;padding:4px; }
+</style>
+
+<div class="chat-page">
+    <div class="chat-header">
+        <div>
+            <strong style="color:var(--green-dark);">👤 {{ outro_apelido }}</strong>
+            <span style="font-size:0.8em;color:#999;"> ({{ email_contato }})</span>
+        </div>
+        <a href="{{ url_for('home') }}">⬅ Voltar</a>
+    </div>
+
+    <div id="status" style="text-align:center;padding:5px;font-size:0.85em;background:#f9f9f9;">⏳ Conectando...</div>
+
+    <div id="messages">
+        {% for msg in historico %}
+            {% if msg.tipo == 'sistema' %}
+                <div class="msg-sistema">{{ msg.texto }}</div>
+            {% elif msg.remetente == email_logado %}
+                <div class="msg-minha" id="msg-{{ msg.id }}">
+                    <div class="autor">Você</div>
+                    {% if msg.midia %}
+                        {% if msg.midia.tipo == 'imagem' %}
+                            <img src="/uploads/{{ msg.midia.arquivo }}" onclick="window.open(this.src)" loading="lazy">
+                        {% elif msg.midia.tipo == 'video' %}
+                            <video controls preload="metadata"><source src="/uploads/{{ msg.midia.arquivo }}"></video>
+                        {% elif msg.midia.tipo == 'audio' %}
+                            <audio controls preload="none"><source src="/uploads/{{ msg.midia.arquivo }}"></audio>
+                        {% else %}
+                            <a class="arquivo-link" href="/uploads/{{ msg.midia.arquivo }}" target="_blank">📄 {{ msg.midia.arquivo }}</a>
+                        {% endif %}
+                    {% endif %}
+                    {% if msg.texto %}<div class="texto">{{ msg.texto }}</div>{% endif %}
+                    <div class="hora">{{ msg.data.split(' ')[0] if msg.data else '' }}</div>
+                </div>
+            {% else %}
+                <div class="msg-outro" id="msg-{{ msg.id }}">
+                    <div class="autor">{{ outro_apelido }}</div>
+                    {% if msg.midia %}
+                        {% if msg.midia.tipo == 'imagem' %}
+                            <img src="/uploads/{{ msg.midia.arquivo }}" onclick="window.open(this.src)" loading="lazy">
+                        {% elif msg.midia.tipo == 'video' %}
+                            <video controls preload="metadata"><source src="/uploads/{{ msg.midia.arquivo }}"></video>
+                        {% elif msg.midia.tipo == 'audio' %}
+                            <audio controls preload="none"><source src="/uploads/{{ msg.midia.arquivo }}"></audio>
+                        {% else %}
+                            <a class="arquivo-link" href="/uploads/{{ msg.midia.arquivo }}" target="_blank">📄 {{ msg.midia.arquivo }}</a>
+                        {% endif %}
+                    {% endif %}
+                    {% if msg.texto %}<div class="texto">{{ msg.texto }}</div>{% endif %}
+                    <div class="hora">{{ msg.data.split(' ')[0] if msg.data else '' }}</div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div id="uploadStatus" class="upload-status"></div>
+    <div class="input-area">
+        <button class="btn-midia" id="midiaBtn" title="Enviar mídia">📎</button>
+        <button class="btn-audio" id="audioBtn" title="Gravar áudio">🎙️</button>
+        <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
+        <input type="text" id="msgInput" placeholder="Digite sua mensagem..." autocomplete="off">
+        <button class="btn btn-primary" id="sendBtn" style="border-radius:20px;padding:10px 20px;">Enviar</button>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+<script>
+    const convId = "{{ conv_id }}";
+    const apelido = "{{ session.apelido }}";
+    const emailLogado = "{{ email_logado }}";
+    const emailContato = "{{ email_contato }}";
+    const outroApelido = "{{ outro_apelido }}";
+    
+    const socket = io({ transports: ['websocket', 'polling'] });
+    const statusDiv = document.getElementById('status');
+    const msgsDiv = document.getElementById('messages');
+
+    socket.on('connect', function() {
+        statusDiv.textContent = '🟢 Conectado';
+        socket.emit('entrar_chat', { conv_id: convId, email: emailLogado, apelido: apelido });
+    });
+
+    socket.on('connect_error', function() {
+        statusDiv.textContent = '🔴 Erro de conexão';
+    });
+
+    socket.on('disconnect', function() {
+        statusDiv.textContent = '⚠️ Desconectado';
+    });
+
+    socket.on('nova_mensagem', function(data) {
+        if (data.conv_id && data.conv_id !== convId) return;
+        const isMine = data.remetente === emailLogado;
+        const div = document.createElement('div');
+        div.id = 'msg-' + data.id;
+        div.className = isMine ? 'msg-minha' : 'msg-outro';
+        let html = '<div class="autor">' + (isMine ? 'Você' : apelido) + '</div>';
+        if (data.midia) {
+            if (data.midia.tipo === 'imagem') html += '<img src="/uploads/' + data.midia.arquivo + '" onclick="window.open(this.src)" loading="lazy">';
+            else if (data.midia.tipo === 'video') html += '<video controls preload="metadata"><source src="/uploads/' + data.midia.arquivo + '"></video>';
+            else if (data.midia.tipo === 'audio') html += '<audio controls preload="none"><source src="/uploads/' + data.midia.arquivo + '"></audio>';
+            else html += '<a class="arquivo-link" href="/uploads/' + data.midia.arquivo + '" target="_blank">📄 ' + data.midia.arquivo.split('.').pop() + '</a>';
+        }
+        if (data.texto) html += '<div class="texto">' + data.texto + '</div>';
+        html += '<div class="hora">agora</div>';
+        div.innerHTML = html;
+        msgsDiv.appendChild(div);
+        msgsDiv.scrollTop = msgsDiv.scrollHeight;
+    });
+
+    function enviar() {
+        const input = document.getElementById('msgInput');
+        const texto = input.value.trim();
+        if (texto && socket.connected) {
+            socket.emit('mensagem_privada', {
+                conv_id: convId,
+                remetente: emailLogado,
+                apelido: apelido,
+                texto: texto,
+                destino: emailContato
+            });
+            input.value = '';
+        }
+    }
+
+    document.getElementById('sendBtn').onclick = enviar;
+    document.getElementById('msgInput').onkeydown = function(e) {
+        if (e.key === 'Enter') enviar();
+    };
+
+    // Upload
+    document.getElementById('midiaBtn').onclick = function() {
+        document.getElementById('fileInput').click();
+    };
+
+    document.getElementById('fileInput').onchange = function() {
+        const file = this.files[0];
+        if (!file) return;
+        const status = document.getElementById('uploadStatus');
+        status.textContent = '📤 Enviando ' + file.name + '...';
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('/upload', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.erro) { status.textContent = '❌ ' + data.erro; return; }
+                status.textContent = '';
+                socket.emit('mensagem_privada', {
+                    conv_id: convId, remetente: emailLogado, apelido: apelido,
+                    texto: '', destino: emailContato, midia: data
+                });
+            })
+            .catch(e => { status.textContent = '❌ Erro: ' + e.message; });
+        this.value = '';
+    };
+
+    // Áudio
+    let mediaRecorder = null, audioChunks = [], gravando = false;
+    document.getElementById('audioBtn').onclick = function() {
+        const btn = this;
+        if (gravando) { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); return; }
+        if (!navigator.mediaDevices?.getUserMedia) { alert('Gravação não suportada.'); return; }
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4' });
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.onstop = function() {
+                    stream.getTracks().forEach(t => t.stop());
+                    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+                    const ext = mediaRecorder.mimeType.includes('webm') ? 'webm' : 'mp4';
+                    const file = new File([blob], `audio_${Date.now()}.${ext}`, { type: mediaRecorder.mimeType });
+                    const status = document.getElementById('uploadStatus');
+                    status.textContent = '📤 Enviando áudio...';
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    fetch('/upload', { method: 'POST', body: formData })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.erro) { status.textContent = '❌ ' + data.erro; return; }
+                            status.textContent = '';
+                            socket.emit('mensagem_privada', {
+                                conv_id: convId, remetente: emailLogado, apelido: apelido,
+                                texto: '', destino: emailContato, midia: data
+                            });
+                        })
+                        .catch(e => { status.textContent = '❌ Erro: ' + e.message; });
+                    gravando = false; btn.textContent = '🎙️'; btn.className = 'btn-audio';
+                };
+                mediaRecorder.start();
+                gravando = true; btn.textContent = '⏹️'; btn.className = 'btn-audio gravando';
+            })
+            .catch(e => alert('Erro no microfone: ' + e.message));
+    };
+
+    // Scroll pro final
+    msgsDiv.scrollTop = msgsDiv.scrollHeight;
+</script>
+{% endblock %}
