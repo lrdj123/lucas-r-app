@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="color-scheme" content="light">
+    {% block og %}
     <meta property="og:title" content="VoiceMail - Chat Privado por E-mail">
     <meta property="og:description" content="Converse com quem você quiser usando apenas o e-mail. Privado, seguro e sem número de telefone.">
     <meta property="og:image" content="https://lucasrapp-5vjo8csu.b4a.run/static/og-image.png">
@@ -11,8 +12,19 @@
     <meta property="og:image:height" content="630">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://lucasrapp-5vjo8csu.b4a.run">
+    {% endblock %}
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VoiceMail">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/static/sw.js');
+    }
+    </script>
     <title>{% block title %}VoiceMail{% endblock %}</title>
     <style>
         :root {
