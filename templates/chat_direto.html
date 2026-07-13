@@ -40,11 +40,12 @@
         background:var(--green-dark);color:white;border-radius:6px;
         text-decoration:none;font-size:0.85em;
     }
-    .btn-apagar {
-        cursor:pointer;font-size:0.7em;opacity:0.3;transition:opacity 0.2s;
-        margin-left:6px;
+    .btn-lixeira {
+        cursor:pointer;font-size:0.85em;opacity:0.25;transition:opacity 0.2s;
+        margin-left:6px;background:none;border:none;color:#5dade2;padding:2px;
+        vertical-align:middle;line-height:1;
     }
-    .btn-apagar:hover { opacity:1; }
+    .btn-lixeira:hover { opacity:1; }
     .input-area { display:flex;gap:8px;align-items:center;padding:10px;background:white;border-radius:0 0 12px 12px;box-shadow:var(--shadow); }
     .input-area input[type="text"] { flex:1;padding:12px;border:2px solid #ddd;border-radius:20px;font-size:1em;outline:none; }
     .input-area input[type="text"]:focus { border-color:var(--gold); }
@@ -88,7 +89,7 @@
                         {% endif %}
                     {% endif %}
                     {% if msg.texto %}<div class="texto">{{ msg.texto }}</div>{% endif %}
-                    <div class="hora">{{ msg.data.split(' ')[0] if msg.data else '' }}</div>
+                    <div class="hora">{{ msg.data.split(' ')[0] if msg.data else '' }}<button class="btn-lixeira" onclick="apagarMsg('{{ msg.id }}')" title="Apagar">🗑️</button></div>
                 </div>
             {% else %}
                 <div class="msg-outro" id="msg-{{ msg.id }}">
@@ -250,6 +251,25 @@
             })
             .catch(e => alert('Erro no microfone: ' + e.message));
     };
+
+    // Apagar mensagem (via socket - reflete pros dois)
+    function apagarMsg(msgId) {
+        if (!confirm('Apagar esta mensagem?')) return;
+        socket.emit('apagar_mensagem', {
+            msg_id: msgId,
+            conv_id: convId,
+            email: emailLogado
+        });
+    }
+
+    // Quando alguém apaga (inclusive eu)
+    socket.on('msg_apagada', function(data) {
+        const el = document.getElementById('msg-' + data.id);
+        if (el) {
+            el.style.display = 'none';
+            el.innerHTML = '<div style="font-style:italic;color:#999;font-size:0.8em;">🗑️ Mensagem apagada</div>';
+        }
+    });
 
     // Scroll pro final
     msgsDiv.scrollTop = msgsDiv.scrollHeight;
