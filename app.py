@@ -539,24 +539,31 @@ def handle_mensagem(data):
         remetente = data.get('remetente', '')
         texto = data.get('texto', '').strip()
         midia = data.get('midia')
+        sticker = data.get('sticker')
         if not conv_id or not remetente:
             return
-        if not texto and not midia:
+        if not texto and not midia and not sticker:
             return
         msg_id = f"{remetente}-{int(time.time()*1000)}"
         conn = get_db()
         midia_json = None
         if midia:
             midia_json = json.dumps(midia)
+        if sticker:
+            # Salva sticker como midia do tipo imagem
+            sticker_data = {'tipo': 'imagem', 'arquivo': sticker.replace('/static/stickers/', '')}
+            midia_json = json.dumps(sticker_data)
         conn.execute(
             "INSERT INTO mensagens (id, conversa_id, remetente, texto, midia_json) VALUES (?, ?, ?, ?, ?)",
-            (msg_id, conv_id, remetente, texto, midia_json)
+            (msg_id, conv_id, remetente, texto if texto else None, midia_json)
         )
         conn.commit()
         conn.close()
         msg = {'id': msg_id, 'remetente': remetente, 'texto': texto, 'conv_id': conv_id, 'apelido': data.get('apelido', '')}
         if midia:
             msg['midia'] = midia
+        if sticker:
+            msg['sticker'] = sticker
         # Envia pro chat
         emit('nova_mensagem', msg, room=sala_id(conv_id))
         # Envia notificação pro outro participante (se estiver na home)
