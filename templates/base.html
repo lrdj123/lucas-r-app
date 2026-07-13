@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="color-scheme" content="light">
-    <title>{% block title %}Lucas R{% endblock %}</title>
+    <title>{% block title %}VoiceMail{% endblock %}</title>
     <style>
         :root {
             --green-dark: #1a3c34;
@@ -20,11 +20,14 @@
             color: #333;
             user-select: none;
             -webkit-user-select: none;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
-        .container { max-width: 1000px; margin: 0 auto; padding: 0 15px; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 15px; width: 100%; }
         header {
             background: var(--green-dark);
-            padding: 15px 0;
+            padding: 12px 0;
         }
         .header-inner {
             max-width: 1000px; margin: 0 auto; padding: 0 15px;
@@ -35,16 +38,10 @@
         }
         .logo span { color: var(--gold); }
         nav a {
-            color: white; text-decoration: none; margin-left: 15px;
+            color: white; text-decoration: none; margin-left: 12px;
             padding: 6px 14px; border-radius: 6px; font-size: 0.9em;
         }
         nav a:hover { background: rgba(255,255,255,0.15); }
-        .hero {
-            text-align: center; padding: 60px 20px;
-        }
-        .hero h1 { font-size: 2.5em; color: var(--green-dark); }
-        .hero h1 span { color: var(--gold); }
-        .hero p { color: #666; font-size: 1.1em; margin-top: 10px; }
         .card {
             background: white; border-radius: 12px; box-shadow: var(--shadow);
         }
@@ -57,25 +54,35 @@
             background: var(--gold); color: var(--green-dark);
         }
         .btn-primary:hover { background: #b8973a; }
+        .btn-danger {
+            background: #e74c3c; color: white;
+        }
+        .btn-danger:hover { background: #c0392b; }
+        main { flex: 1; }
         footer {
             background: var(--green-dark); color: var(--cream);
-            text-align: center; padding: 20px; margin-top: 40px;
+            text-align: center; padding: 12px; margin-top: auto;
         }
-        footer p { opacity: 0.7; font-size: 0.85em; }
+        footer p { opacity: 0.7; font-size: 0.8em; }
+        .input-field {
+            width: 100%; padding: 12px; border: 2px solid #ddd;
+            border-radius: 8px; font-size: 1em; outline: none;
+            transition: border 0.2s;
+        }
+        .input-field:focus { border-color: var(--gold); }
         @media (max-width: 768px) {
-            .header-inner { flex-direction: column; gap: 10px; }
-            .hero h1 { font-size: 1.8em; }
-            nav a { margin: 0 5px; font-size: 0.8em; }
+            .header-inner { gap: 8px; }
+            nav a { margin: 0 4px; font-size: 0.8em; padding: 5px 10px; }
         }
     </style>
 </head>
 <body>
     <header>
         <div class="header-inner">
-            <a href="/" class="logo">💬 Lucas <span>R</span></a>
+            <a href="/" class="logo">🎙️ Voice<span>Mail</span></a>
             <nav>
                 {% if session.email %}
-                    <a href="{{ url_for('salas_view') }}">📁 Salas</a>
+                    <span style="color:rgba(255,255,255,0.7);font-size:0.85em;">{{ session.apelido }}</span>
                     <a href="{{ url_for('sair') }}">🚪 Sair</a>
                 {% endif %}
             </nav>
@@ -87,7 +94,7 @@
     </main>
 
     <footer>
-        <p>💬 Lucas R &copy; 2026 — Chat temporário. Sem rastro.</p>
+        <p>🎙️ VoiceMail &copy; 2026 — <span style="opacity:0.5;">Lucas R</span></p>
     </footer>
 </body>
 </html>
