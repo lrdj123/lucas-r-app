@@ -115,6 +115,9 @@
     body.dark-mode .btn-audio:hover, body.dark-mode .btn-camera:hover { border-color: var(--gold); }
     body.dark-mode .msg-sistema { color: #888; }
     body.dark-mode .sticker-picker img { background: transparent; }
+    .icon-svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
+    .btn-sticker, .btn-emoji, .btn-camera, .btn-midia, .btn-audio { color: var(--texto); display: inline-flex; align-items: center; justify-content: center; }
+
 </style>
 
 <div class="chat-page">
@@ -189,11 +192,11 @@
     <div class="emoji-picker" id="emojiPicker"></div>
     <div class="sticker-picker" id="stickerPicker"></div>
     <div class="input-area">
-        <button class="btn-sticker" id="stickerBtn" title="Stickers animados">🎭</button>
-        <button class="btn-emoji" id="emojiBtn" title="Emojis">😊</button>
-        <button class="btn-camera" id="cameraBtn" title="Gravar vídeo">📹</button>
-        <button class="btn-midia" id="midiaBtn" title="Enviar mídia">📎</button>
-        <button class="btn-audio" id="audioBtn" title="Gravar áudio">🎙️</button>
+        <button class="btn-sticker" id="stickerBtn" title="Stickers animados"><svg class="icon-svg"><path d="M14.5 19H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9l6 6v10a2 2 0 0 1-2 2h-5.5Z"/><path d="M14 3v6h6"/></svg></button>
+        <button class="btn-emoji" id="emojiBtn" title="Emojis"><svg class="icon-svg"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+        <button class="btn-camera" id="cameraBtn" title="Gravar vídeo"><svg class="icon-svg"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2" ry="2"/></svg></button>
+        <button class="btn-midia" id="midiaBtn" title="Enviar mídia"><svg class="icon-svg"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+        <button class="btn-audio" id="audioBtn" title="Gravar áudio"><svg class="icon-svg"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
         <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
         <input type="text" id="msgInput" placeholder="Digite sua mensagem..." autocomplete="off">
         <button class="btn btn-primary" id="sendBtn" style="border-radius:20px;padding:10px 20px;">Enviar</button>
@@ -379,7 +382,7 @@
                             });
                         })
                         .catch(e => { status.textContent = '❌ Erro: ' + e.message; });
-                    gravando = false; btn.textContent = '🎙️'; btn.className = 'btn-audio';
+                    gravando = false; btn.innerHTML = '<svg class="icon-svg"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'; btn.className = 'btn-audio';
                 };
                 mediaRecorder.start();
                 gravando = true; btn.textContent = '⏹️'; btn.className = 'btn-audio gravando';
@@ -424,7 +427,7 @@
                             });
                         })
                         .catch(e => { status.textContent = '❌ Erro: ' + e.message; });
-                    gravandoVideo = false; btn.textContent = '📹'; btn.className = 'btn-camera';
+                    gravandoVideo = false; btn.innerHTML = '<svg class="icon-svg"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2" ry="2"/></svg>'; btn.className = 'btn-camera';
                 };
                 mediaRecorderVideo.start();
                 gravandoVideo = true; btn.textContent = '⏹️'; btn.className = 'btn-camera gravando';
